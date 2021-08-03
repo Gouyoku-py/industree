@@ -1,3 +1,6 @@
+# File containing Streamlit Sharing secrets - necessary for local development
+secrets.toml
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
