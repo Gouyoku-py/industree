@@ -27,7 +27,9 @@ password = st.text_input('Κωδικός πρόσβασης',
                          key = 'password',
                          type = 'password')
 
-if not password == st.secrets['password']: st.stop()
+if not password == st.secrets['password']:
+    st.markdown(':red_circle: Λανθασμένος κωδικός!')
+    st.stop()
 
 dbx = dropbox.Dropbox(st.secrets['dropbox_token'])
 res = dbx.files_download("/specs.csv")[1]
@@ -79,8 +81,17 @@ if not st.checkbox('Προβολή δεδομένων για ένα μόνο κ�
                                   key = 'alloy1',
                                   help = help_alloy1)
 
-        if st.form_submit_button('Ανανέωση δεδομένων'):
+        btn_cols = st.beta_columns([0.3,0.3,0.4])
+
+        with btn_cols[0]:
+            btn_refresh = st.form_submit_button('Προβολή επιλογών')
+        with btn_cols[1]:
+            btn_reverse = st.form_submit_button('Αντίστροφη προβολή')
+
+        if btn_refresh:
             st.dataframe(get_frame_double(alloy0, alloy1))
+        if btn_reverse:
+            st.dataframe(get_frame_double(alloy1, alloy0))
 
 else:
     with st.form(key = 'form_single'):
@@ -92,5 +103,5 @@ else:
                                  index = 0,
                                  key = 'alloy')
 
-        if st.form_submit_button('Ανανέωση δεδομένων'):
+        if st.form_submit_button('Προβολή επιλογής'):
             st.dataframe(get_frame_single(alloy))
