@@ -10,6 +10,8 @@ import io
 import dropbox
 import pandas as pd
 
+pd.set_option('display.precision', 3)
+
 st.set_page_config(page_title = 'industree',
                    page_icon = ':palm_tree:',
                    layout = 'centered',
@@ -40,6 +42,8 @@ def read_data(res):
 
 data = read_data(res)
 
+props = {'font-size': '11pt'}
+
 def get_frame_double(alloy0, alloy1):
     temp = pd.DataFrame({'1: ' + alloy0: data.loc[alloy0],
                          '2: ' + alloy1: data.loc[alloy1],
@@ -47,10 +51,12 @@ def get_frame_double(alloy0, alloy1):
                         copy = True)
     return temp.style.applymap(lambda x: 'color: orangered' if x < 0
                                else 'color: mediumspringgreen',
-                               subset = 'Διαφορά')
+                               subset = 'Διαφορά')\
+                     .set_properties(**props)
 
 def get_frame_single(alloy):
-    return pd.DataFrame({alloy: data.loc[alloy]}, copy = True)
+    temp = pd.DataFrame({alloy: data.loc[alloy]}, copy = True)
+    return temp.style.set_properties(**props)
 
 
 if not st.checkbox('Προβολή δεδομένων για ένα μόνο κράμα'):
