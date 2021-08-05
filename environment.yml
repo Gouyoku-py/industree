@@ -2,4 +2,6 @@ name: industree
 dependencies:
   - dropbox
   - pandas
+  - pip:
+    - streamlit-analytics
   

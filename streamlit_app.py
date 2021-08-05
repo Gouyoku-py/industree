@@ -8,6 +8,7 @@ import streamlit as st
 
 import io
 import dropbox
+import streamlit_analytics
 import pandas as pd
 
 pd.set_option('display.precision', 3)
@@ -30,6 +31,8 @@ password = st.text_input('Κωδικός πρόσβασης',
 if not password == st.secrets['password']:
     st.markdown(':red_circle: Λανθασμένος κωδικός!')
     st.stop()
+
+streamlit_analytics.start_tracking()
 
 dbx = dropbox.Dropbox(st.secrets['dropbox_token'])
 res = dbx.files_download("/specs.csv")[1]
@@ -105,3 +108,5 @@ else:
 
         if st.form_submit_button('Προβολή επιλογής'):
             st.dataframe(get_frame_single(alloy))
+
+streamlit_analytics.stop_tracking()
