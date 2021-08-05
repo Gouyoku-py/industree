@@ -40,7 +40,6 @@ def read_data(res):
 
 data = read_data(res)
 
-@st.cache
 def get_frame_double(alloy0, alloy1):
     temp = pd.DataFrame({'1: ' + alloy0: data.loc[alloy0],
                          '2: ' + alloy1: data.loc[alloy1],
@@ -50,7 +49,6 @@ def get_frame_double(alloy0, alloy1):
                                else 'color: mediumspringgreen',
                                subset = 'Διαφορά')
 
-@st.cache
 def get_frame_single(alloy):
     return pd.DataFrame({alloy: data.loc[alloy]}, copy = True)
 
