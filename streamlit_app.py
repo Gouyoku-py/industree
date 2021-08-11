@@ -28,7 +28,9 @@ password = st.text_input('Κωδικός πρόσβασης',
                          key = 'password',
                          type = 'password')
 
-if not password == st.secrets['password']:
+if password == '':
+    st.stop()
+elif not password == st.secrets['password']:
     st.markdown(':red_circle: Λανθασμένος κωδικός!')
     st.stop()
 
