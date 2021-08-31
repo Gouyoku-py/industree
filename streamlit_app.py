@@ -39,8 +39,8 @@ if page == 'Αλλαγή κράματος':
     except:
         pass
 
-    st.markdown('Μια **απλή** εφαρμογή που δίνει πρόσβαση σε πληροφορίες απαραίτητες \
-                για την αλλαγή κράματος.')
+    st.markdown('Μια **απλή** εφαρμογή που δίνει πρόσβαση σε πληροφορίες \
+                απαραίτητες για την αλλαγή κράματος.')
 
     password = st.text_input('Κωδικός πρόσβασης',
                               max_chars = 12,
@@ -70,8 +70,8 @@ if page == 'Αλλαγή κράματος':
 
     def get_frame_double(alloy0, alloy1):
         temp = pd.DataFrame({'1: ' + alloy0: data.loc[alloy0],
-                              '2: ' + alloy1: data.loc[alloy1],
-                              'Διαφορά': data.loc[alloy1] - data.loc[alloy0]},
+                             '2: ' + alloy1: data.loc[alloy1],
+                             'Διαφορά': data.loc[alloy1] - data.loc[alloy0]},
                             copy = True)
         return temp.style.applymap(lambda x: 'color: orangered' if x < 0
                                     else 'color: mediumspringgreen',
@@ -85,7 +85,7 @@ if page == 'Αλλαγή κράματος':
 
     if not st.checkbox('Προβολή δεδομένων για ένα μόνο κράμα'):
         with st.form(key = 'form_double'):
-            cols = st.beta_columns([0.45,0.45,0.1])
+            cols = st.columns([0.45,0.45,0.1])
 
             help_alloy0 = 'Κωδικός του κράματος που χυτεύεται έως τώρα'
             with cols[0]:
@@ -103,7 +103,7 @@ if page == 'Αλλαγή κράματος':
                                       key = 'alloy1',
                                       help = help_alloy1)
 
-            btn_cols = st.beta_columns([0.3,0.3,0.4])
+            btn_cols = st.columns([0.3,0.3,0.4])
 
             with btn_cols[0]:
                 btn_refresh = st.form_submit_button('Προβολή επιλογών')
@@ -117,7 +117,7 @@ if page == 'Αλλαγή κράματος':
 
     else:
         with st.form(key = 'form_single'):
-            cols = st.beta_columns([0.45,0.45,0.1])
+            cols = st.columns([0.45,0.45,0.1])
 
             with cols[0]:
                 alloy = st.selectbox('Κράμα',
@@ -132,8 +132,8 @@ elif page == 'Πρόγραμμα παραγωγής':
     st.title('Πρόγραμμα παραγωγής')
 
     schedule_page = st.sidebar.selectbox('Λειτουργία',
-                                         ['Πίνακες παραγγελιών'],
-                                          # 'Προσθήκη παραγγελίας',
+                                         ['Πίνακες παραγγελιών',
+                                           'Προσθήκη παραγγελίας'],
                                           # 'Τροποποίηση παραγγελίας',
                                           # 'Διαγραφή παραγγελίας'],
                                          index = 0,
@@ -150,10 +150,106 @@ elif page == 'Πρόγραμμα παραγωγής':
     if schedule_page == "Πίνακες παραγγελιών":
         st.header('Πίνακες παραγγελιών')
 
+        # Reset options selected within another schedule_page
+        try:
+            del st.session_state['add_section']
+        except:
+            pass
+
         for x in ['Α', 'Β', 'Η', 'Θ']:
             st.markdown('### Εγκατάσταση **{}**'.format(x))
             show_table = orders.query("Εγκατάσταση == '{}'".format(x))\
                 .sort_values(by = 'Θέση', ignore_index = True)
             st.dataframe(show_table)
+
+    elif schedule_page == 'Προσθήκη παραγγελίας':
+        st.header('Προσθήκη παραγγελίας')
+
+        add_cols_aux = st.columns([0.32, 0.7])
+
+        with add_cols_aux[0]:
+            add_section = st.selectbox('Εγκατάσταση',
+                                       ['Α', 'Β', 'Η', 'Θ'],
+                                       index = 0,
+                                       key = 'add_section')
+
+        with st.form(key = 'add_form'):
+            add_cols = st.columns([0.3, 0.3, 0.3, 0.1])
+
+            with add_cols[0]:
+                help_add_code = 'Κωδικός του κράματος που ζητείται να χυτευτεί'
+                add_code = st.text_input('Κωδικός',
+                                         key = 'add_code',
+                                         help = help_add_code).upper()
+
+                greek = {'Α': 'A', 'Β': 'B', 'Ε': 'E', 'Η': 'H', 'Ι': 'I',
+                         'Κ': 'K', 'Μ': 'M', 'Ν': 'N', 'Ο': 'O', 'Ρ': 'P',
+                         'Τ': 'T', 'Υ': 'Y', 'Χ': 'X'}
+                for grletter, enletter in greek.items():
+                    add_code = add_code.replace(grletter, enletter)
+
+                default = orders.query("Εγκατάσταση == @add_section")['Θέση'].max() + 1
+                default = default if (isinstance(default, int)) else 1
+
+                help_add_position = 'Θέση της χύτευσης στο πρόγραμμα'
+                add_position = st.number_input('Θέση',
+                                               min_value = 1,
+                                               max_value = 99,
+                                               value = default,
+                                               step = 1,
+                                               key = 'add_position',
+                                               help = help_add_position)
+
+            with add_cols[1]:
+                help_add_quantity = 'Ποσότητα που ζητείται να χυτευτεί σε πλήθος πλακών/κολονών'
+                add_quantity = st.number_input('Ποσότητα',
+                                               min_value = 1,
+                                               max_value = 99,
+                                               step = 1,
+                                               key = 'add_quantity',
+                                               help = help_add_quantity)
+
+                help_add_start_date = 'Ημέρα μετά την οποία πρέπει να εκτελεστεί η παραγγελία'
+                add_start_date = st.date_input('Έναρξη Καμπάνιας',
+                                               key = 'add_start_date',
+                                               help = help_add_start_date)
+
+            with add_cols[2]:
+                help_add_pending = 'Πλήθος πλακών/κολονών που εκκρεμεί να χυτευτούν'
+                add_pending = st.number_input('Υπόλοιπο',
+                                              min_value = 0,
+                                              max_value = 99,
+                                              key = 'add_pending',
+                                              help = help_add_pending)
+
+            add_trial = st.checkbox('Δοκιμή', value = False, key = 'add_trial')
+
+            if st.form_submit_button('Προσθήκη'):
+
+                if add_pending > add_quantity:
+                    st.markdown(':red_circle: Το υπόλοιπο χυτεύσεων δεν πρέπει να είναι μεγαλύτερο της συνολικής ποσότητας!')
+                else:
+                    batch = db.batch()
+
+                    for doc in db.collection('orders').\
+                        where('section', '==', add_section).stream():
+                        old_position = doc.get('position')
+                        if old_position >= add_position:
+                            new_position = old_position + 1
+                            batch.update(doc.reference,
+                                         {'position': new_position})
+
+                    batch.commit()
+
+                    doc_ref = db.collection('orders').document()
+                    doc_ref.set({'section': add_section,
+                                 'position': add_position,
+                                 'code': add_code,
+                                 'quantity': add_quantity,
+                                 'pending': add_pending,
+                                 'trial': add_trial,
+                                 'start_date': add_start_date.strftime('%Y/%m/%d')})
+
+                    st.markdown(':white_check_mark: Η παραγγελία προστέθηκε επιτυχώς!')
 
 streamlit_analytics.stop_tracking()
