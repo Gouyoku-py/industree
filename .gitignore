@@ -1,6 +1,9 @@
 # File containing Streamlit Sharing secrets - necessary for local development
 secrets.toml
 
+# File containing Firestore key - necessary for local development
+firestore-key.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
