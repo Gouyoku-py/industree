@@ -82,7 +82,6 @@ if page == 'Αλλαγή κράματος':
         temp = pd.DataFrame({alloy: data.loc[alloy]}, copy = True)
         return temp.style.set_properties(**props)
 
-
     if not st.checkbox('Προβολή δεδομένων για ένα μόνο κράμα'):
         with st.form(key = 'form_double'):
             cols = st.columns([0.45,0.45,0.1])
@@ -133,11 +132,16 @@ elif page == 'Πρόγραμμα παραγωγής':
 
     schedule_page = st.sidebar.selectbox('Λειτουργία',
                                          ['Πίνακες παραγγελιών',
-                                           'Προσθήκη παραγγελίας'],
+                                          'Προσθήκη παραγγελίας',
                                           # 'Τροποποίηση παραγγελίας',
-                                          # 'Διαγραφή παραγγελίας'],
+                                          'Διαγραφή παραγγελίας'],
                                          index = 0,
                                          key = 'schedule_page')
+
+    add_states = ['add_section', 'add_table', 'add_code', 'add_position',
+                  'add_quantity', 'add_pending', 'add_start_date', 'add_trial']
+
+    delete_states = ['delete_section', 'delete_table', 'delete_position']
 
     orders_list = list(db.collection('orders').stream())
     orders_dict = list(map(lambda x: x.to_dict(), orders_list))
@@ -150,11 +154,11 @@ elif page == 'Πρόγραμμα παραγωγής':
     if schedule_page == "Πίνακες παραγγελιών":
         st.header('Πίνακες παραγγελιών')
 
-        # Reset options selected within another schedule_page
-        try:
-            del st.session_state['add_section']
-        except:
-            pass
+        for state in add_states + delete_states:
+            try:
+                del st.session_state[state]
+            except:
+                pass
 
         for x in ['Α', 'Β', 'Η', 'Θ']:
             st.markdown('### Εγκατάσταση **{}**'.format(x))
@@ -165,6 +169,12 @@ elif page == 'Πρόγραμμα παραγωγής':
     elif schedule_page == 'Προσθήκη παραγγελίας':
         st.header('Προσθήκη παραγγελίας')
 
+        for state in delete_states:
+            try:
+                del st.session_state[state]
+            except:
+                pass
+
         add_cols_aux = st.columns([0.32, 0.7])
 
         with add_cols_aux[0]:
@@ -172,6 +182,11 @@ elif page == 'Πρόγραμμα παραγωγής':
                                        ['Α', 'Β', 'Η', 'Θ'],
                                        index = 0,
                                        key = 'add_section')
+
+        with st.expander('Πίνακας παραγγελιών'):
+            add_table = orders.query("Εγκατάσταση == '{}'".format(add_section))\
+                .sort_values(by = 'Θέση', ignore_index = True)
+            st.dataframe(add_table)
 
         with st.form(key = 'add_form'):
             add_cols = st.columns([0.3, 0.3, 0.3, 0.1])
@@ -226,7 +241,10 @@ elif page == 'Πρόγραμμα παραγωγής':
 
             if st.form_submit_button('Προσθήκη'):
 
-                if add_pending > add_quantity:
+                max_add_position = orders.query("Εγκατάσταση == @add_section")['Θέση'].max()
+                if add_position > max_add_position + 1:
+                    st.markdown(':red_circle: Οι θέσεις στη σειρά χύτευσης πρέπει να είναι διαδοχικές!')
+                elif add_pending > add_quantity:
                     st.markdown(':red_circle: Το υπόλοιπο χυτεύσεων δεν πρέπει να είναι μεγαλύτερο της συνολικής ποσότητας!')
                 else:
                     batch = db.batch()
@@ -251,5 +269,67 @@ elif page == 'Πρόγραμμα παραγωγής':
                                  'start_date': add_start_date.strftime('%Y/%m/%d')})
 
                     st.markdown(':white_check_mark: Η παραγγελία προστέθηκε επιτυχώς!')
+                    st.markdown(':grey_exclamation: Η μεταβολή θα εμφανιστεί \
+                                στον πίνακα όταν η σελίδα ανανεωθεί.')
+
+    elif schedule_page == 'Διαγραφή παραγγελίας':
+        st.header('Διαγραφή παραγγελίας')
+
+        for state in add_states:
+            try:
+                del st.session_state[state]
+            except:
+                pass
+
+        delete_cols_aux = st.columns([0.32, 0.7])
+
+        with delete_cols_aux[0]:
+            delete_section = st.selectbox('Εγκατάσταση',
+                                          ['Α', 'Β', 'Η', 'Θ'],
+                                          index = 0,
+                                          key = 'edit_section')
+
+        with st.expander('Πίνακας παραγγελιών'):
+            delete_empty = st.empty()
+            delete_table = orders.query("Εγκατάσταση == '{}'".format(delete_section))\
+                .sort_values(by = 'Θέση', ignore_index = True)
+            delete_empty.dataframe(delete_table)
+
+        with st.form(key = 'delete_form'):
+            delete_cols = st.columns([0.32, 0.32, 0.36])
+
+            with delete_cols[0]:
+                help_delete_position = 'Θέση της χύτευσης στο πρόγραμμα'
+                delete_position = st.number_input('Θέση',
+                                                  min_value = 1,
+                                                  max_value = 99,
+                                                  step = 1,
+                                                  key = 'delete_position',
+                                                  help = help_delete_position)
+
+            if st.form_submit_button('Διαγραφή'):
+
+                max_delete_position = orders.query("Εγκατάσταση == @delete_section")['Θέση'].max()
+                if delete_position > max_delete_position:
+                    st.markdown(':red_circle: Δεν υπάρχει χύτευση με αυτό τον αριθμό θέσης!')
+                else:
+                    batch = db.batch()
+
+                    for doc in db.collection('orders').\
+                        where('section', '==', delete_section).stream():
+                        old_position = doc.get('position')
+
+                        if old_position == delete_position:
+                            batch.delete(doc.reference)
+                        else:
+                            if old_position >= delete_position:
+                                new_position = old_position - 1
+                                batch.update(doc.reference, {'position': new_position})
+
+                    batch.commit()
+
+                    st.markdown(':white_check_mark: Η παραγγελία διαγράφηκε επιτυχώς!')
+                    st.markdown(':grey_exclamation: Η μεταβολή θα εμφανιστεί \
+                                στον πίνακα όταν η σελίδα ανανεωθεί.')
 
 streamlit_analytics.stop_tracking()
