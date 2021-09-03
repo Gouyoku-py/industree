@@ -69,6 +69,16 @@ def gr_to_en(code):
 
 streamlit_analytics.start_tracking()
 
+password = st.sidebar.text_input('Κωδικός πρόσβασης',
+                                 max_chars = 12,
+                                 key = 'password',
+                                 type = 'password')
+if password == '':
+    st.stop()
+elif not password == st.secrets['password']:
+    st.markdown(':red_circle: Λανθασμένος κωδικός!')
+    st.stop()
+
 page = st.sidebar.selectbox('Εφαρμογή',
                             ['Αλλαγή κράματος', 'Πρόγραμμα παραγωγής'],
                             index = 0,
@@ -80,16 +90,6 @@ if page == 'Αλλαγή κράματος':
     st.title('Αλλαγή Κράματος')
     st.markdown('Μια **απλή** εφαρμογή που δίνει πρόσβαση σε πληροφορίες \
                 απαραίτητες για την αλλαγή κράματος.')
-
-    password = st.text_input('Κωδικός πρόσβασης',
-                             max_chars = 12,
-                             key = 'password',
-                             type = 'password')
-    if password == '':
-        st.stop()
-    elif not password == st.secrets['password']:
-        st.markdown(':red_circle: Λανθασμένος κωδικός!')
-        st.stop()
 
     dbx = dropbox.Dropbox(st.secrets['dropbox_token'])
     res = dbx.files_download("/specs.csv")[1]
