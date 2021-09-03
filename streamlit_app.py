@@ -133,13 +133,19 @@ elif page == 'Πρόγραμμα παραγωγής':
     schedule_page = st.sidebar.selectbox('Λειτουργία',
                                          ['Πίνακες παραγγελιών',
                                           'Προσθήκη παραγγελίας',
-                                          # 'Τροποποίηση παραγγελίας',
+                                          'Τροποποίηση παραγγελίας',
                                           'Διαγραφή παραγγελίας'],
                                          index = 0,
                                          key = 'schedule_page')
 
     add_states = ['add_section', 'add_table', 'add_code', 'add_position',
                   'add_quantity', 'add_pending', 'add_start_date', 'add_trial']
+
+    edit_states = ['init_section', 'init_position', 'edit_table'
+                   'edit_section', 'edit_code', 'edit_position',
+                   'edit_quantity', 'edit_pending', 'edit_start_date',
+                   'new_section', 'new_code', 'new_position',
+                   'new_quantity', 'new_pending', 'new_start_date']
 
     delete_states = ['delete_section', 'delete_table', 'delete_position']
 
@@ -151,10 +157,11 @@ elif page == 'Πρόγραμμα παραγωγής':
     orders.columns = ['Εγκατάσταση', 'Θέση', 'Κωδικός', 'Πλήθος', 'Υπόλοιπο',
                       'Έναρξη καμπάνιας', 'Δοκιμή']
 
+
     if schedule_page == "Πίνακες παραγγελιών":
         st.header('Πίνακες παραγγελιών')
 
-        for state in add_states + delete_states:
+        for state in add_states + edit_states + delete_states:
             try:
                 del st.session_state[state]
             except:
@@ -169,7 +176,7 @@ elif page == 'Πρόγραμμα παραγωγής':
     elif schedule_page == 'Προσθήκη παραγγελίας':
         st.header('Προσθήκη παραγγελίας')
 
-        for state in delete_states:
+        for state in edit_states + delete_states:
             try:
                 del st.session_state[state]
             except:
@@ -225,7 +232,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                                                help = help_add_quantity)
 
                 help_add_start_date = 'Ημέρα μετά την οποία πρέπει να εκτελεστεί η παραγγελία'
-                add_start_date = st.date_input('Έναρξη Καμπάνιας',
+                add_start_date = st.date_input('Έναρξη καμπάνιας',
                                                key = 'add_start_date',
                                                help = help_add_start_date)
 
@@ -272,10 +279,244 @@ elif page == 'Πρόγραμμα παραγωγής':
                     st.markdown(':grey_exclamation: Η μεταβολή θα εμφανιστεί \
                                 στον πίνακα όταν η σελίδα ανανεωθεί.')
 
+    elif schedule_page == 'Τροποποίηση παραγγελίας':
+        st.header('Τροποποίηση παραγγελίας')
+
+        for state in add_states + delete_states:
+            try:
+                del st.session_state[state]
+            except:
+                pass
+
+        edit_cols_aux = st.columns([0.32, 0.7])
+
+        with edit_cols_aux[0]:
+            init_section = st.selectbox('Εγκατάσταση',
+                                        ['Α', 'Β', 'Η', 'Θ'],
+                                        index = 0,
+                                        key = 'init_section')
+
+        with st.expander('Πίνακας παραγγελιών'):
+            edit_table = orders.query("Εγκατάσταση == '{}'".format(init_section))\
+                .sort_values(by = 'Θέση', ignore_index = True)
+            st.dataframe(edit_table)
+
+        with st.form(key = 'edit_form'):
+            edit_cols_aux2 = st.columns([0.32, 0.7])
+
+            with edit_cols_aux2[0]:
+                help_init_position = 'Θέση της χύτευσης στο πρόγραμμα'
+                init_position = st.number_input('Θέση',
+                                                min_value = 1,
+                                                max_value = 99,
+                                                step = 1,
+                                                key = 'init_position',
+                                                help = help_init_position)
+
+            st.markdown('')
+            edit_cols = st.columns([0.40, 0.1, 0.40, 0.1])
+
+            with edit_cols[0]:
+                edit_section = st.checkbox('Τροποποίηση εγκατάστασης;',
+                                            key = 'edit_section',
+                                            value = False)
+
+                new_section = st.selectbox('Νέα εγκατάσταση',
+                                           ['Α', 'Β', 'Η', 'Θ'],
+                                           index = 0,
+                                           key = 'new_section')
+
+                edit_code = st.checkbox('Τροποποίηση κωδικού;',
+                                        key = 'edit_code')
+
+                new_code = st.text_input('Νέος Κωδικός',
+                                         key = 'new_code').upper()
+
+                greek = {'Α': 'A', 'Β': 'B', 'Ε': 'E', 'Η': 'H', 'Ι': 'I',
+                         'Κ': 'K', 'Μ': 'M', 'Ν': 'N', 'Ο': 'O', 'Ρ': 'P',
+                         'Τ': 'T', 'Υ': 'Y', 'Χ': 'X'}
+                for grletter, enletter in greek.items():
+                    new_code = new_code.replace(grletter, enletter)
+
+                edit_quantity = st.checkbox('Τροποποίηση ποσότητας;',
+                                            key = 'edit_quantity')
+
+                new_quantity = st.number_input('Νέα ποσότητα',
+                                               min_value = 1,
+                                               max_value = 99,
+                                               step = 1,
+                                               key = 'new_quantity')
+                st.markdown('')
+                edit_trial = True
+                new_trial = st.checkbox('Τροποποιημένη κατάσταση δοκιμής',
+                                        value = False,
+                                        key = 'new_trial')
+
+            with edit_cols[2]:
+                edit_position = st.checkbox('Τροποποίηση θέσης;',
+                                            key = 'edit_position')
+
+                new_position = st.number_input('Νεα θέση',
+                                               min_value = 1,
+                                               max_value = 99,
+                                               step = 1,
+                                               key = 'new_position')
+
+                edit_start_date = st.checkbox('Τροποποίηση έναρξης',
+                                              key = 'edit_start_date')
+
+                new_start_date = st.date_input('Νέα έναρξη καμπάνιας',
+                                               key = 'new_start_date')
+
+                edit_pending = st.checkbox('Τροποποίηση υπολοίπου;',
+                                           key = 'edit_pending')
+
+                new_pending = st.number_input('Νέο υπόλοιπο',
+                                              min_value = 0,
+                                              max_value = 99,
+                                              key = 'new_pending')
+
+            checkboxes = [edit_section, edit_code, edit_position,
+                          edit_quantity, edit_pending, edit_start_date,
+                          edit_trial]
+
+            new_values = [{'section': new_section},
+                          {'code': new_code},
+                          {'position': new_position},
+                          {'quantity': new_quantity},
+                          {'pending': new_pending},
+                          {'start_date': new_start_date},
+                          {'trial': new_trial}]
+
+            if st.form_submit_button('Τροποποίηση'):
+
+                max_init_position = orders.query("Εγκατάσταση == @init_section")['Θέση'].max()
+                max_new_position = orders.query("Εγκατάσταση == @new_section")['Θέση'].max()
+
+                if init_position > max_init_position:
+                    st.markdown(':red_circle: Δεν υπάρχει χύτευση με αυτό τον αριθμό θέσης!')
+
+                elif (edit_section and not edit_position):
+                    st.markdown(':red_circle: Για τροποποίηση εγκατάστασης πρέπει να επιλεγεί και η τροποποίηση θέσης, καθώς και να οριστεί σωστά η θέση στη νέα εγκατάσταση.')
+
+                elif (edit_section and new_position > max_new_position + 1):
+                    st.markdown(':red_circle: Οι θέσεις στη σειρά χύτευσης πρέπει να είναι διαδοχικές!')
+
+                elif (not edit_section and edit_position and init_position == new_position):
+                    st.markdown(':red_circle: Η νέα θέση δεν πρέπει να είναι ίδια με την αρχική!')
+
+                elif (not edit_section and edit_position and new_position > max_init_position + 1):
+                    st.markdown(':red_circle: Οι θέσεις στη σειρά χύτευσης πρέπει να είναι διαδοχικές!')
+
+                else:
+                    if edit_section:
+                        batch = db.batch()
+
+                        for doc in db.collection('orders').\
+                            where('section', '==', new_section).stream():
+
+                            doc_position = doc.get('position')
+                            if doc_position >= new_position:
+                                move_position = doc_position + 1
+                                batch.update(doc.reference,
+                                             {'position': move_position})
+
+                        batch.commit()
+                        batch = db.batch()
+
+                        for doc in db.collection('orders').\
+                            where('section', '==', init_section).stream():
+                            if doc.get('position') == init_position:
+                                for (checkbox, value) in zip(checkboxes, new_values):
+                                    if checkbox:
+                                        batch.update(doc.reference, value)
+
+                        batch.commit()
+                        batch = db.batch()
+
+                        for doc in db.collection('orders').\
+                            where('section', '==', init_section).stream():
+
+                            doc_position = doc.get('position')
+                            if doc_position >= init_position:
+                                move_position = doc_position - 1
+                                batch.update(doc.reference,
+                                             {'position': move_position})
+
+                        batch.commit()
+
+                    elif edit_position:
+
+                        batch = db.batch()
+
+                        for doc in db.collection('orders').\
+                            where('section', '==', init_section).stream():
+
+                            doc_position = doc.get('position')
+                            if doc_position == init_position:
+                                batch.update(doc.reference, {'section': 'Ω'})
+
+                        batch.commit()
+                        batch = db.batch()
+
+                        if new_position < init_position:
+                            for doc in db.collection('orders').\
+                                where('section', '==', init_section).stream():
+
+                                    doc_position = doc.get('position')
+                                    if (doc_position < init_position and doc_position >= new_position):
+                                        move_position = doc_position + 1
+                                        batch.update(doc.reference, {'position': move_position})
+
+                            batch.commit()
+                            batch = db.batch()
+
+                        else:
+                            for doc in db.collection('orders').\
+                                where('section', '==', init_section).stream():
+
+                                doc_position = doc.get('position')
+                                if (doc_position > init_position and doc_position <= new_position):
+                                    move_position = doc_position - 1
+                                    batch.update(doc.reference, {'position': move_position})
+
+                            batch.commit()
+                            batch = db.batch()
+
+                        for doc in db.collection('orders').\
+                            where('section', '==', 'Ω').stream():
+
+                            for (checkbox, value) in zip(checkboxes[1:], new_values[1:]):
+                                if checkbox:
+                                    batch.update(doc.reference, value)
+
+                            batch.update(doc.reference, {'section': init_section})
+
+                        batch.commit()
+
+                    else:
+
+                        batch = db.batch()
+
+                        for doc in db.collection('orders').\
+                            where('section', '==', init_section).stream():
+
+                            doc_position = doc.get('position')
+                            if doc_position == init_position:
+                                for (checkbox, value) in zip(checkboxes, new_values):
+                                    if checkbox:
+                                        batch.update(doc.reference, value)
+
+                        batch.commit()
+
+                    st.markdown(':white_check_mark: Η παραγγελία τροποποιήθηκε επιτυχώς!')
+                    st.markdown(':grey_exclamation: Η μεταβολή θα εμφανιστεί \
+                                στον πίνακα όταν η σελίδα ανανεωθεί.')
+
     elif schedule_page == 'Διαγραφή παραγγελίας':
         st.header('Διαγραφή παραγγελίας')
 
-        for state in add_states:
+        for state in add_states + edit_states:
             try:
                 del st.session_state[state]
             except:
