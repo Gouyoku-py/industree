@@ -169,6 +169,18 @@ elif page == 'Πρόγραμμα παραγωγής':
     orders.columns = ['Εγκατάσταση', 'Θέση', 'Κωδικός', 'Πλήθος', 'Υπόλοιπο',
                       'Έναρξη καμπάνιας', 'Δοκιμή']
 
+    orders_csv = orders.sort_values(by = ['Εγκατάσταση', 'Θέση'],
+                                    ignore_index = True)
+    orders_csv = orders_csv.to_csv(index = False, encoding = 'utf-8')
+
+    st.sidebar.download_button('Λήψη προγράμματος (csv)',
+                               data = orders_csv,
+                               file_name = 'prod_sched.csv',
+                               key = 'download_schedule')
+    if st.session_state['download_schedule']:
+        help_download = 'Κατεβάστε το αρχείο στον υπολογιστή σας και εισάγετέ το σε ένα κενό φύλλο του Excel, επιλέγοντας κωδικοποίηση UTF-8.'
+        st.sidebar.markdown(help_download)
+
     if schedule_page == "Πίνακες παραγγελιών":
         clear_state(add_variables + edit_variables + delete_variables)
 
