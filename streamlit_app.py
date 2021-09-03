@@ -14,11 +14,12 @@ import json
 import dropbox
 import streamlit_analytics
 
+from string import Template
 from google.cloud import firestore
 
 st.set_page_config(page_title = 'industree',
                    page_icon = ':palm_tree:',
-                   layout = 'centered',
+                   layout = 'wide',
                    initial_sidebar_state = 'auto')
 
 firestore_key_dict = json.loads(st.secrets['firestore_key'])
@@ -43,6 +44,19 @@ def read_alloy_data(resource):
                        sep = ';',
                        header = 0,
                        index_col = 'ID')
+@st.cache
+def read_products_data(resource):
+    col_names = ['Κωδικός', 'Είδος', 'Διαστάσεις', 'Κράμα', 'Επεξεργασία',
+                 'Πλήθος', 'Μήκος', 'Ανοχές', 'Βάρος', 'Πελάτης']
+    products = pd.read_csv(io.BytesIO(resource.content),
+                           sep = ';',
+                           header = None,
+                           names = col_names,
+                           # index_col = 'Κωδικός',
+                           usecols = [i for i in range(9)] + [10],
+                           encoding = 'utf-8')
+    products['Διαστάσεις'] = products['Διαστάσεις'].apply(lambda x: x.replace('X', 'x'))
+    return products
 
 def get_frame_double(alloy_data, alloy0, alloy1):
     alloy0_data = alloy_data.loc[alloy0]
@@ -143,8 +157,15 @@ elif page == 'Πρόγραμμα παραγωγής':
     st.markdown('Μια **ελαφρώς σύνθετη** εφαρμογή που επιτρέπει την προβολή \
                 και την τροποποίηση του προγράμματος παραγωγής.')
 
+    dbx = dropbox.Dropbox(st.secrets['dropbox_token'])
+    res = dbx.files_download("/products.csv")[1]
+    dbx.close()
+
+    products_data = read_products_data(res)
+
     schedule_functions = ['Πίνακες παραγγελιών', 'Προσθήκη παραγγελίας',
-                          'Τροποποίηση παραγγελίας', 'Διαγραφή παραγγελίας']
+                          'Τροποποίηση παραγγελίας', 'Διαγραφή παραγγελίας',
+                          'Στοιχεία προϊόντων']
     schedule_page = st.sidebar.selectbox('Λειτουργία',
                                          schedule_functions,
                                          key = 'schedule_page')
@@ -197,7 +218,7 @@ elif page == 'Πρόγραμμα παραγωγής':
 
         st.header(schedule_page)
 
-        add_cols_aux = st.columns([0.32, 0.7])
+        add_cols_aux = st.columns([0.32, 0.68])
         with add_cols_aux[0]:
             add_section = st.selectbox('Εγκατάσταση',
                                        ['Α', 'Β', 'Η', 'Θ'],
@@ -292,7 +313,7 @@ elif page == 'Πρόγραμμα παραγωγής':
 
         st.header(schedule_page)
 
-        edit_cols_aux = st.columns([0.32, 0.7])
+        edit_cols_aux = st.columns([0.32, 0.68])
 
         with edit_cols_aux[0]:
             init_section = st.selectbox('Εγκατάσταση',
@@ -305,7 +326,7 @@ elif page == 'Πρόγραμμα παραγωγής':
             st.dataframe(edit_table)
 
         with st.form(key = 'edit_form'):
-            edit_cols_aux2 = st.columns([0.32, 0.7])
+            edit_cols_aux2 = st.columns([0.32, 0.68])
 
             with edit_cols_aux2[0]:
                 help_init_position = 'Θέση της χύτευσης στο πρόγραμμα'
@@ -486,7 +507,7 @@ elif page == 'Πρόγραμμα παραγωγής':
 
         st.header(schedule_page)
 
-        delete_cols_aux = st.columns([0.32, 0.7])
+        delete_cols_aux = st.columns([0.32, 0.68])
         with delete_cols_aux[0]:
             delete_section = st.selectbox('Εγκατάσταση',
                                           ['Α', 'Β', 'Η', 'Θ'],
@@ -530,5 +551,24 @@ elif page == 'Πρόγραμμα παραγωγής':
                     st.markdown(':white_check_mark: Η παραγγελία διαγράφηκε επιτυχώς!')
                     st.markdown(':grey_exclamation: Η μεταβολή θα εμφανιστεί \
                                 στον πίνακα όταν η σελίδα ανανεωθεί.')
+
+    elif schedule_page == 'Στοιχεία προϊόντων':
+        clear_state(add_variables + edit_variables + delete_variables)
+
+        st.header(schedule_page)
+
+        with st.expander('Πίνακας προϊόντων'):
+            st.dataframe(products_data)
+
+        with st.form(key = 'form_product'):
+            prod_cols_aux = st.columns([0.32, 0.68])
+
+            with prod_cols_aux[0]:
+                prod_code = st.selectbox('Κωδικός προϊόντος',
+                                         products_data['Κωδικός'],
+                                         key = 'prod_code')
+
+            if st.form_submit_button('Προβολή επιλογής'):
+                st.dataframe(products_data.query("Κωδικός == @prod_code"))
 
 streamlit_analytics.stop_tracking()
