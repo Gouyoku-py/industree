@@ -163,7 +163,7 @@ elif page == 'Πρόγραμμα παραγωγής':
 
     products_data = read_products_data(res)
 
-    schedule_functions = ['Πίνακες παραγγελιών', 'Προσθήκη παραγγελίας',
+    schedule_functions = ['Παραγγελίες', 'Προσθήκη παραγγελίας',
                           'Τροποποίηση παραγγελίας', 'Διαγραφή παραγγελίας',
                           'Στοιχεία προϊόντων']
     schedule_page = st.sidebar.selectbox('Λειτουργία',
@@ -181,6 +181,8 @@ elif page == 'Πρόγραμμα παραγωγής':
                       'new_quantity', 'new_pending', 'new_start_date']
 
     delete_variables = ['delete_section', 'delete_table', 'delete_position']
+
+    sections = ['Α', 'Β', 'Η', 'Θ']
 
     orders_list = list(db.collection('orders').stream())
     orders_dict = list(map(lambda x: x.to_dict(), orders_list))
@@ -202,18 +204,7 @@ elif page == 'Πρόγραμμα παραγωγής':
         help_download = 'Κατεβάστε το αρχείο στον υπολογιστή σας και εισάγετέ το σε ένα κενό φύλλο του Excel, επιλέγοντας κωδικοποίηση UTF-8.'
         st.sidebar.markdown(help_download)
 
-    if schedule_page == "Πίνακες παραγγελιών":
-        clear_state(add_variables + edit_variables + delete_variables)
-
-        st.header(schedule_page)
-
-        for x in ['Α', 'Β', 'Η', 'Θ']:
-            st.markdown('### Εγκατάσταση **{}**'.format(x))
-            show_table = orders.query("Εγκατάσταση == '{}'".format(x))\
-                .sort_values(by = 'Θέση', ignore_index = True)
-            st.dataframe(show_table)
-
-    elif schedule_page == 'Προσθήκη παραγγελίας':
+    if schedule_page == 'Προσθήκη παραγγελίας':
         clear_state(edit_variables + delete_variables)
 
         st.header(schedule_page)
@@ -221,7 +212,7 @@ elif page == 'Πρόγραμμα παραγωγής':
         add_cols_aux = st.columns([0.32, 0.68])
         with add_cols_aux[0]:
             add_section = st.selectbox('Εγκατάσταση',
-                                       ['Α', 'Β', 'Η', 'Θ'],
+                                       sections,
                                        key = 'add_section')
 
         with st.expander('Πίνακας παραγγελιών'):
@@ -317,7 +308,7 @@ elif page == 'Πρόγραμμα παραγωγής':
 
         with edit_cols_aux[0]:
             init_section = st.selectbox('Εγκατάσταση',
-                                        ['Α', 'Β', 'Η', 'Θ'],
+                                        sections,
                                         key = 'init_section')
 
         with st.expander('Πίνακας παραγγελιών'):
@@ -345,7 +336,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                                             key = 'edit_section',
                                             value = False)
                 new_section = st.selectbox('Εγκατάσταση',
-                                           ['Α', 'Β', 'Η', 'Θ'],
+                                           sections,
                                            key = 'new_section')
 
                 edit_code = st.checkbox('Τροποποίηση κωδικού;',
@@ -510,7 +501,7 @@ elif page == 'Πρόγραμμα παραγωγής':
         delete_cols_aux = st.columns([0.32, 0.68])
         with delete_cols_aux[0]:
             delete_section = st.selectbox('Εγκατάσταση',
-                                          ['Α', 'Β', 'Η', 'Θ'],
+                                          sections,
                                           key = 'delete_section')
 
         with st.expander('Πίνακας παραγγελιών'):
@@ -570,5 +561,63 @@ elif page == 'Πρόγραμμα παραγωγής':
 
             if st.form_submit_button('Προβολή επιλογής'):
                 st.dataframe(products_data.query("Κωδικός == @prod_code"))
+
+    elif schedule_page == "Παραγγελίες":
+        clear_state(add_variables + edit_variables + delete_variables)
+
+        # st.header(schedule_page)
+        display = st.radio('Προβολή', ['Καρτελάκια', 'Πίνακες'], key = 'display')
+
+        if display == 'Πίνακες':
+            for section in sections:
+                st.markdown('### Εγκατάσταση **{}**'.format(section))
+                show_table = orders.query("Εγκατάσταση == '{}'".format(section))\
+                    .sort_values(by = 'Θέση', ignore_index = True)
+                st.dataframe(show_table)
+        else:
+            max_cards = 10
+            with open('templates/template-cards.html', 'r') as f:
+                html_cards = Template(f.read())
+
+            former = ['a01', 'a02', 'a03', 'a04', 'a05', 'a06', 'a07', 'a08', 'a09', 'a10']
+            mapping = {i + j[1:] : '' for i in former for j in former + ['a11', 'a12', 'a13']}
+            style = {'0': 'card', '1': 'trial'}
+            mappings = {section: {**mapping} for section in sections}
+
+            for i in range(1, max_cards + 1):
+                for section in sections:
+                    section_data = orders.query("Εγκατάσταση == @section")\
+                        .sort_values(by = 'Θέση', ignore_index = True)
+                    if i <= section_data.shape[0]:
+                        try:
+                            code = section_data.loc[i-1, 'Κωδικός']
+                            code = gr_to_en(code)
+                            prod_id = products_data.query("Κωδικός == @code").index.values[0]
+
+                            mappings[section][former[i-1] + '01'] = code
+                            mappings[section][former[i-1] + '02'] = products_data.loc[prod_id, 'Πελάτης']
+                            mappings[section][former[i-1] + '03'] = products_data.loc[prod_id, 'Διαστάσεις']
+                            mappings[section][former[i-1] + '04'] = products_data.loc[prod_id, 'Κράμα']
+                            mappings[section][former[i-1] + '05'] = products_data.loc[prod_id, 'Επεξεργασία']
+                            mappings[section][former[i-1] + '06'] = int(products_data.loc[prod_id, 'Πλήθος'])
+                            mappings[section][former[i-1] + '07'] = int(products_data.loc[prod_id, 'Μήκος'])
+                            mappings[section][former[i-1] + '08'] = products_data.loc[prod_id, 'Ανοχές']
+                            mappings[section][former[i-1] + '09'] = products_data.loc[prod_id, 'Βάρος']
+                            mappings[section][former[i-1] + '10'] = section_data.loc[i-1, 'Πλήθος'] - section_data.loc[i-1, 'Υπόλοιπο']
+                            mappings[section][former[i-1] + '11'] = '/ ' + str(section_data.loc[i-1, 'Πλήθος'])
+                            mappings[section][former[i-1] + '12'] = style[str(int(section_data.loc[i-1, 'Δοκιμή']))]
+
+                        except:
+                            mappings[section][former[i-1] + '01'] = code
+                            mappings[section][former[i-1] + '02'] = 'Άγνωστο Προϊόν'
+                            mappings[section][former[i-1] + '10'] = section_data.loc[i-1, 'Υπόλοιπο']
+                            mappings[section][former[i-1] + '11'] = '/ ' + str(section_data.loc[i-1, 'Πλήθος'])
+                            mappings[section][former[i-1] + '12'] = style[str(int(section_data.loc[i-1, 'Δοκιμή']))]
+                    else:
+                        pass
+
+            for section in sections:
+                card = html_cards.safe_substitute(**mappings[section])
+                st.components.v1.html(card, height = 390, scrolling = True)
 
 streamlit_analytics.stop_tracking()
