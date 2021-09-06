@@ -165,7 +165,7 @@ elif page == 'Πρόγραμμα παραγωγής':
 
     schedule_functions = ['Παραγγελίες', 'Προσθήκη παραγγελίας',
                           'Τροποποίηση παραγγελίας', 'Διαγραφή παραγγελίας',
-                          'Στοιχεία προϊόντων']
+                          'Καταχώρηση scrap', 'Στοιχεία προϊόντων']
     schedule_page = st.sidebar.selectbox('Λειτουργία',
                                          schedule_functions,
                                          key = 'schedule_page')
@@ -182,6 +182,8 @@ elif page == 'Πρόγραμμα παραγωγής':
 
     delete_variables = ['delete_section', 'delete_table', 'delete_position']
 
+    scrap_variables = ['scrap_section', 'scrap_entry', 'scrap_text']
+
     sections = ['Α', 'Β', 'Η', 'Θ']
 
     orders_list = list(db.collection('orders').stream())
@@ -191,6 +193,10 @@ elif page == 'Πρόγραμμα παραγωγής':
                                      'pending', 'start_date', 'trial'])
     orders.columns = ['Εγκατάσταση', 'Θέση', 'Κωδικός', 'Πλήθος', 'Υπόλοιπο',
                       'Έναρξη καμπάνιας', 'Δοκιμή']
+
+    scrap_list = list(db.collection('scrap').stream())
+    scrap_dict = list(map(lambda x: x.to_dict(), scrap_list))
+    scrap = pd.DataFrame(scrap_dict)
 
     orders_csv = orders.sort_values(by = ['Εγκατάσταση', 'Θέση'],
                                     ignore_index = True)
@@ -205,7 +211,7 @@ elif page == 'Πρόγραμμα παραγωγής':
         st.sidebar.markdown(help_download)
 
     if schedule_page == 'Προσθήκη παραγγελίας':
-        clear_state(edit_variables + delete_variables)
+        clear_state(edit_variables + delete_variables + scrap_variables)
 
         st.header(schedule_page)
 
@@ -300,7 +306,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                     st.markdown(':grey_exclamation: Η μεταβολή θα εμφανιστεί στον πίνακα όταν η σελίδα ανανεωθεί.')
 
     elif schedule_page == 'Τροποποίηση παραγγελίας':
-        clear_state(add_variables + delete_variables)
+        clear_state(add_variables + delete_variables + scrap_variables)
 
         st.header(schedule_page)
 
@@ -494,7 +500,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                                 στον πίνακα όταν η σελίδα ανανεωθεί.')
 
     elif schedule_page == 'Διαγραφή παραγγελίας':
-        clear_state(add_variables + edit_variables)
+        clear_state(add_variables + edit_variables + scrap_variables)
 
         st.header(schedule_page)
 
@@ -511,7 +517,7 @@ elif page == 'Πρόγραμμα παραγωγής':
             delete_empty.dataframe(delete_table)
 
         with st.form(key = 'delete_form'):
-            delete_cols = st.columns([0.32, 0.32, 0.36])
+            delete_cols = st.columns([0.32, 0.68])
 
             with delete_cols[0]:
                 help_delete_position = 'Θέση της χύτευσης στο πρόγραμμα'
@@ -544,7 +550,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                                 στον πίνακα όταν η σελίδα ανανεωθεί.')
 
     elif schedule_page == 'Στοιχεία προϊόντων':
-        clear_state(add_variables + edit_variables + delete_variables)
+        clear_state(add_variables + edit_variables + delete_variables + scrap_variables)
 
         st.header(schedule_page)
 
@@ -562,8 +568,45 @@ elif page == 'Πρόγραμμα παραγωγής':
             if st.form_submit_button('Προβολή επιλογής'):
                 st.dataframe(products_data.query("Κωδικός == @prod_code"))
 
-    elif schedule_page == "Παραγγελίες":
+    elif schedule_page == 'Καταχώρηση scrap':
         clear_state(add_variables + edit_variables + delete_variables)
+
+        st.header(schedule_page)
+
+        scrap_cols_aux = st.columns([0.32, 0.32, 0.36])
+
+        with scrap_cols_aux[0]:
+            scrap_section = st.selectbox('Εγκατάσταση',
+                                          sections,
+                                          key = 'scrap_section')
+
+        with scrap_cols_aux[1]:
+            scrap_entry = st.selectbox('Εγγραφή',
+                                       range(1,6),
+                                       key = 'scrap_entry')
+
+        with st.form(key = 'form_scrap'):
+            scrap_cols = st.columns([0.32, 0.68])
+
+            with scrap_cols[0]:
+                scrap_text = st.text_input('Νέα καταχώρηση',
+                                           key = 'scrap_text')
+                st.write('Τρέχουσα καταχώρηση:',
+                         scrap.query("section == @scrap_section")[str(scrap_entry)].values[0])
+
+            if st.form_submit_button('Καταχώρηση'):
+                batch = db.batch()
+                for doc in db.collection('scrap').\
+                        where('section', '==', scrap_section).stream():
+                            batch.update(doc.reference, {str(scrap_entry): scrap_text})
+                batch.commit()
+
+                st.markdown(':white_check_mark: Το είδος scrap καταχωρήθηκε επιτυχώς!')
+                st.markdown(':grey_exclamation: Η μεταβολή θα εμφανιστεί \
+                                στον πίνακα όταν η σελίδα ανανεωθεί.')
+
+    elif schedule_page == "Παραγγελίες":
+        clear_state(add_variables + edit_variables + delete_variables + scrap_variables)
 
         # st.header(schedule_page)
         display = st.radio('Προβολή', ['Καρτελάκια', 'Πίνακες'], key = 'display')
@@ -578,11 +621,14 @@ elif page == 'Πρόγραμμα παραγωγής':
             max_cards = 10
             with open('templates/template-cards.html', 'r') as f:
                 html_cards = Template(f.read())
+            with open('templates/template-scrap.html', 'r') as f:
+                html_scrap = Template(f.read())
 
             former = ['a01', 'a02', 'a03', 'a04', 'a05', 'a06', 'a07', 'a08', 'a09', 'a10']
             mapping = {i + j[1:] : '' for i in former for j in former + ['a11', 'a12', 'a13']}
             style = {'0': 'card', '1': 'trial'}
             mappings = {section: {**mapping} for section in sections}
+            scrap_cards = {}
 
             for i in range(1, max_cards + 1):
                 for section in sections:
@@ -617,7 +663,25 @@ elif page == 'Πρόγραμμα παραγωγής':
                         pass
 
             for section in sections:
-                card = html_cards.safe_substitute(**mappings[section])
-                st.components.v1.html(card, height = 390, scrolling = True)
+                scrap_data = scrap.query("section == @section")
+                scrap_card = html_scrap.safe_substitute(a1 = section,
+                                                        a2 = scrap_data["1"].values[0],
+                                                        a3 = scrap_data["2"].values[0],
+                                                        a4 = scrap_data["3"].values[0],
+                                                        a5 = scrap_data["4"].values[0],
+                                                        a6 = scrap_data["5"].values[0])
+
+                scrap_cards[section] = scrap_card
+
+                card_cols = st.columns([0.15, 0.85])
+
+                with card_cols[0]:
+                    st.components.v1.html(scrap_cards[section],
+                                          height = 390,
+                                          scrolling = False)
+
+                with card_cols[1]:
+                    card = html_cards.safe_substitute(**mappings[section])
+                    st.components.v1.html(card, height = 390, scrolling = True)
 
 streamlit_analytics.stop_tracking()
