@@ -673,15 +673,15 @@ elif page == 'Πρόγραμμα παραγωγής':
 
                 scrap_cards[section] = scrap_card
 
-                card_cols = st.columns([0.15, 0.85])
+                card_cols = st.columns([0.12, 0.88])
 
                 with card_cols[0]:
                     st.components.v1.html(scrap_cards[section],
-                                          height = 390,
+                                          height = 260,
                                           scrolling = False)
 
                 with card_cols[1]:
                     card = html_cards.safe_substitute(**mappings[section])
-                    st.components.v1.html(card, height = 390, scrolling = True)
+                    st.components.v1.html(card, height = 260, scrolling = True)
 
 streamlit_analytics.stop_tracking()

@@ -5,35 +5,35 @@
 	display: flex;
 	flex-direction: row;
 	flex-wrap: nowrap;
+	align-items: flex-start;	
 }
 .card, .trial {
+	flex-grow: 0;
+	flex-shrink: 1;
 	background-color: #984353;
 	border: 3px solid #FFFFFF;
 	margin: 0 5px;
 	padding: 0 5px;
-	flex: 0 1 300px;
 	font-family: "Trebuchet MS";
+	font-size: 9pt;
 	color: #FFFFFF;
 	text-align: center;
 }
 .trial {
 	border-color: #D3545F;
 }
-.card:hover {
-	border-style: dashed;
-}
-.trial:hover {
+.card:hover, .trial:hover {
 	border-style: dashed;
 }
 info1, info4, info5, .grid-item1 {
 	font-weight: bold;
-	font-size: 200%;
-}
-info2, box {
 	font-size: 170%;
 }
+info2, box {
+	font-size: 155%;
+}
 info3 {
-	font-size: 150%;
+	font-size: 140%;
 }
 info4 {
 	color: #66B8AB;
@@ -43,12 +43,12 @@ info5 {
 }
 .grid-container {
 	display: grid;
-	grid-template-columns: 250px 50px;
+	grid-template-columns: 150px 50px;
 	grid-template-rows: repeat(10, auto);
 	grid-auto-flow: column;
 }
 box {
-	font-size: 120%
+	font-size: 140%
 }
 
 </style>
