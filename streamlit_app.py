@@ -58,6 +58,16 @@ def read_products_data(resource):
     products['Διαστάσεις'] = products['Διαστάσεις'].apply(lambda x: x.replace('X', 'x'))
     return products
 
+@st.cache
+def read_crc_data():
+    crc_list = list(db.collection('crc').stream())
+    crc_dict = list(map(lambda x: x.to_dict(), crc_list))
+    crc = pd.DataFrame(crc_dict, columns = ['dim', 'boxes'])
+    crc['boxes'] = crc['boxes'].apply(lambda x: x.split(','))
+    crc.columns = ['Διαστάσεις', 'Κουτιά']
+    crc.set_index('Διαστάσεις', drop = True, append = False, inplace = True)
+    return crc
+
 def get_frame_double(alloy_data, alloy0, alloy1):
     alloy0_data = alloy_data.loc[alloy0]
     alloy1_data = alloy_data.loc[alloy1]
@@ -172,13 +182,13 @@ elif page == 'Πρόγραμμα παραγωγής':
 
     add_variables = ['add_section', 'add_table', 'add_code', 'add_position',
                      'add_quantity', 'add_pending', 'add_start_date',
-                     'add_trial']
+                     'add_crc', 'add_trial']
 
     edit_variables = ['init_section', 'init_position', 'edit_table',
                       'edit_section', 'edit_code', 'edit_position',
-                      'edit_quantity', 'edit_pending', 'edit_start_date',
+                      'edit_quantity', 'edit_pending', 'edit_start_date', 'edit_crc',
                       'new_section', 'new_code', 'new_position',
-                      'new_quantity', 'new_pending', 'new_start_date']
+                      'new_quantity', 'new_pending', 'new_start_date', 'new_crc']
 
     delete_variables = ['delete_section', 'delete_table', 'delete_position']
 
@@ -190,9 +200,12 @@ elif page == 'Πρόγραμμα παραγωγής':
     orders_dict = list(map(lambda x: x.to_dict(), orders_list))
     orders = pd.DataFrame(orders_dict,
                           columns = ['section', 'position', 'code', 'quantity',
-                                     'pending', 'start_date', 'trial'])
+                                     'pending', 'start_date', 'trial', 'crc'])
     orders.columns = ['Εγκατάσταση', 'Θέση', 'Κωδικός', 'Πλήθος', 'Υπόλοιπο',
-                      'Έναρξη καμπάνιας', 'Δοκιμή']
+                      'Έναρξη καμπάνιας', 'Δοκιμή', 'CRC']
+
+    crc = read_crc_data()
+    crc_unique = set([item for sublist in crc['Κουτιά'].to_list() for item in sublist])
 
     scrap_list = list(db.collection('scrap').stream())
     scrap_dict = list(map(lambda x: x.to_dict(), scrap_list))
@@ -267,6 +280,14 @@ elif page == 'Πρόγραμμα παραγωγής':
                                               max_value = 99,
                                               key = 'add_pending',
                                               help = help_add_pending)
+
+                help_add_crc = 'CRC που απαιτείται να χρησιμοποιηθεί για τη χύτευση'
+                add_crc = st.selectbox('CRC',
+                                       ['N/A', '290', '370', '450-1', '450-2',
+                                        '500', '620-1', '620-2'],
+                                       key = 'add_crc',
+                                       help = help_add_crc)
+
             help_trial = 'Επιλέξτε αν η χύτευση είναι δοκιμαστική'
             add_trial = st.checkbox('Δοκιμή',
                                     value = False,
@@ -294,13 +315,15 @@ elif page == 'Πρόγραμμα παραγωγής':
                     batch.commit()
 
                     doc_ref = db.collection('orders').document()
-                    doc_ref.set({'section': add_section,
+                    set_dict = {'section': add_section,
                                  'position': add_position,
                                  'code': add_code,
                                  'quantity': add_quantity,
                                  'pending': add_pending,
                                  'trial': add_trial,
-                                 'start_date': add_start_date.strftime('%Y/%m/%d')})
+                                 'start_date': add_start_date.strftime('%Y/%m/%d'),
+                                 'crc': add_crc}
+                    doc_ref.set(set_dict)
 
                     st.markdown(':white_check_mark: Η παραγγελία προστέθηκε επιτυχώς!')
                     st.markdown(':grey_exclamation: Η μεταβολή θα εμφανιστεί στον πίνακα όταν η σελίδα ανανεωθεί.')
@@ -357,11 +380,13 @@ elif page == 'Πρόγραμμα παραγωγής':
                                                min_value = 1,
                                                max_value = 99,
                                                key = 'new_quantity')
-                st.markdown('')
-                edit_trial = True
-                new_trial = st.checkbox('Τροποποιημένη κατάσταση δοκιμής',
-                                        value = False,
-                                        key = 'new_trial')
+
+                edit_crc = st.checkbox('Τροποποίηση CRC;',
+                                       key = 'edit_crc')
+                new_crc = st.selectbox('CRC',
+                                       ['N/A', '290', '370', '450-1', '450-2',
+                                        '500', '620-1', '620-2'],
+                                       key = 'new_crc')
 
             with edit_cols[2]:
                 edit_position = st.checkbox('Τροποποίηση θέσης;',
@@ -383,8 +408,14 @@ elif page == 'Πρόγραμμα παραγωγής':
                                               max_value = 99,
                                               key = 'new_pending')
 
+                st.markdown('')
+                edit_trial = True
+                new_trial = st.checkbox('Τροποποιημένη κατάσταση δοκιμής',
+                                        value = False,
+                                        key = 'new_trial')
+
             checkboxes = [edit_section, edit_code, edit_position, edit_quantity,
-                          edit_pending, edit_start_date, edit_trial]
+                          edit_pending, edit_start_date, edit_trial, edit_crc]
 
             new_values = [{'section': new_section},
                           {'code': new_code},
@@ -392,7 +423,8 @@ elif page == 'Πρόγραμμα παραγωγής':
                           {'quantity': new_quantity},
                           {'pending': new_pending},
                           {'start_date': new_start_date},
-                          {'trial': new_trial}]
+                          {'trial': new_trial},
+                          {'crc': new_crc}]
 
             if st.form_submit_button('Τροποποίηση'):
 
@@ -652,6 +684,26 @@ elif page == 'Πρόγραμμα παραγωγής':
                             mappings[section][former[i-1] + '10'] = section_data.loc[i-1, 'Πλήθος'] - section_data.loc[i-1, 'Υπόλοιπο']
                             mappings[section][former[i-1] + '11'] = '/ ' + str(section_data.loc[i-1, 'Πλήθος'])
                             mappings[section][former[i-1] + '12'] = style[str(int(section_data.loc[i-1, 'Δοκιμή']))]
+
+                            if section != 'Β':
+                                slab_width = products_data.loc[prod_id, 'Διαστάσεις'].split('x')[1]
+
+                                if section_data.loc[i-1, 'CRC'] != 'N/A':
+                                    chosen_box = section_data.loc[i-1, 'CRC']
+                                else:
+                                    chosen_box = 'text'
+                                    for box in crc.loc[slab_width, 'Κουτιά']:
+                                        if box in crc_unique:
+                                            chosen_box = box
+                                            break
+                                        if chosen_box == 'text':
+                                            chosen_box = crc.loc[slab_width, 'Κουτιά'][0]
+
+                                try:
+                                    crc_unique.remove(chosen_box)
+                                    mappings[section][former[i-1] + '13'] = chosen_box
+                                except KeyError:
+                                    mappings[section][former[i-1] + '13'] = '<span style="color:#CD6123">' + chosen_box + '</span>'
 
                         except:
                             mappings[section][former[i-1] + '01'] = code
