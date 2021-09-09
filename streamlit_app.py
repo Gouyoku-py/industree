@@ -174,14 +174,14 @@ elif page == 'Πρόγραμμα παραγωγής':
                                          schedule_functions,
                                          key = 'schedule_page')
 
-    add_variables = ['add_section', 'add_table', 'add_code', 'add_position',
-                     'add_quantity', 'add_pending', 'add_start_date',
+    add_variables = ['add_section', 'add_table', 'add_position', 'add_code',
+                     'add_quantity', 'add_pending', 'add_start_date', 'add_due_date'
                      'add_crc', 'add_trial']
 
     edit_variables = ['init_section', 'init_position', 'edit_table',
-                      'edit_section', 'edit_code', 'edit_position',
-                      'edit_quantity', 'edit_pending', 'edit_start_date', 'edit_crc',
-                      'new_section', 'new_code', 'new_position',
+                      'edit_section', 'edit_position', 'edit_code',
+                      'edit_quantity', 'edit_pending', 'edit_start_date', 'edit_due_date',
+                      'edit_crc', 'new_section', 'new_code', 'new_position',
                       'new_quantity', 'new_pending', 'new_start_date', 'new_crc']
 
     delete_variables = ['delete_section', 'delete_table', 'delete_position']
@@ -194,9 +194,10 @@ elif page == 'Πρόγραμμα παραγωγής':
     orders_dict = list(map(lambda x: x.to_dict(), orders_list))
     orders = pd.DataFrame(orders_dict,
                           columns = ['section', 'position', 'code', 'quantity',
-                                     'pending', 'start_date', 'trial', 'crc'])
+                                     'pending', 'start_date', 'due_date', 'trial',
+                                     'crc'])
     orders.columns = ['Εγκατάσταση', 'Θέση', 'Κωδικός', 'Πλήθος', 'Υπόλοιπο',
-                      'Έναρξη καμπάνιας', 'Δοκιμή', 'CRC']
+                      'Έναρξη καμπάνιας', 'Προθεσμία καμπάνιας', 'Δοκιμή', 'CRC']
 
     crc = read_crc_data()
     crc_unique = set([item for sublist in crc['Κουτιά'].to_list() for item in sublist])
@@ -255,6 +256,12 @@ elif page == 'Πρόγραμμα παραγωγής':
                                                key = 'add_position',
                                                help = help_add_position)
 
+                help_add_crc = 'CRC που απαιτείται να χρησιμοποιηθεί για τη χύτευση'
+                add_crc = st.selectbox('CRC',
+                                       ['N/A'] + crc_unique_sorted,
+                                       key = 'add_crc',
+                                       help = help_add_crc)
+
             with add_cols[1]:
                 help_add_quantity = 'Ποσότητα που ζητείται να χυτευτεί σε πλήθος πλακών/κολονών'
                 add_quantity = st.number_input('Ποσότητα',
@@ -263,7 +270,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                                                key = 'add_quantity',
                                                help = help_add_quantity)
 
-                help_add_start_date = 'Ημέρα μετά την οποία ζητείται να εκτελεστεί η παραγγελία'
+                help_add_start_date = 'Ημέρα από την οποία ζητείται να εκτελεστεί η παραγγελία'
                 add_start_date = st.date_input('Έναρξη καμπάνιας',
                                                key = 'add_start_date',
                                                help = help_add_start_date)
@@ -276,11 +283,10 @@ elif page == 'Πρόγραμμα παραγωγής':
                                               key = 'add_pending',
                                               help = help_add_pending)
 
-                help_add_crc = 'CRC που απαιτείται να χρησιμοποιηθεί για τη χύτευση'
-                add_crc = st.selectbox('CRC',
-                                       ['N/A'] + crc_unique_sorted,
-                                       key = 'add_crc',
-                                       help = help_add_crc)
+                help_add_due_date = 'Ημέρα έως την οποία ζητείται να εκτελεστεί η παραγγελία'
+                add_due_date = st.date_input('Προθεσμία καμπάνιας',
+                                             key = 'add_due_date',
+                                             help = help_add_due_date)
 
             help_trial = 'Επιλέξτε αν η χύτευση είναι δοκιμαστική'
             add_trial = st.checkbox('Δοκιμή',
@@ -316,6 +322,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                                  'pending': add_pending,
                                  'trial': add_trial,
                                  'start_date': add_start_date.strftime('%Y/%m/%d'),
+                                 'due_date': add_due_date.strftime('%Y/%m/%d'),
                                  'crc': add_crc}
                     doc_ref.set(set_dict)
 
@@ -362,12 +369,6 @@ elif page == 'Πρόγραμμα παραγωγής':
                                            sections,
                                            key = 'new_section')
 
-                edit_code = st.checkbox('Τροποποίηση κωδικού;',
-                                        key = 'edit_code')
-                new_code = st.text_input('Νέος Κωδικός',
-                                         key = 'new_code').upper()
-                new_code = gr_to_en(new_code)
-
                 edit_quantity = st.checkbox('Τροποποίηση ποσότητας;',
                                             key = 'edit_quantity')
                 new_quantity = st.number_input('Νέα ποσότητα',
@@ -375,11 +376,22 @@ elif page == 'Πρόγραμμα παραγωγής':
                                                max_value = 99,
                                                key = 'new_quantity')
 
+                edit_start_date = st.checkbox('Τροποποίηση έναρξης',
+                                              key = 'edit_start_date')
+                new_start_date = st.date_input('Νέα έναρξη καμπάνιας',
+                                               key = 'new_start_date')
+
                 edit_crc = st.checkbox('Τροποποίηση CRC;',
                                        key = 'edit_crc')
                 new_crc = st.selectbox('CRC',
                                        ['N/A'] + crc_unique_sorted,
                                        key = 'new_crc')
+
+                st.markdown('')
+                edit_trial = True
+                new_trial = st.checkbox('Τροποποιημένη κατάσταση δοκιμής',
+                                        value = False,
+                                        key = 'new_trial')
 
             with edit_cols[2]:
                 edit_position = st.checkbox('Τροποποίηση θέσης;',
@@ -389,11 +401,6 @@ elif page == 'Πρόγραμμα παραγωγής':
                                                max_value = 99,
                                                key = 'new_position')
 
-                edit_start_date = st.checkbox('Τροποποίηση έναρξης',
-                                              key = 'edit_start_date')
-                new_start_date = st.date_input('Νέα έναρξη καμπάνιας',
-                                               key = 'new_start_date')
-
                 edit_pending = st.checkbox('Τροποποίηση υπολοίπου;',
                                            key = 'edit_pending')
                 new_pending = st.number_input('Νέο υπόλοιπο',
@@ -401,14 +408,20 @@ elif page == 'Πρόγραμμα παραγωγής':
                                               max_value = 99,
                                               key = 'new_pending')
 
-                st.markdown('')
-                edit_trial = True
-                new_trial = st.checkbox('Τροποποιημένη κατάσταση δοκιμής',
-                                        value = False,
-                                        key = 'new_trial')
+                edit_due_date = st.checkbox('Τροποποίηση προθεσμίας',
+                                            key = 'edit_due_date')
+                new_due_date = st.date_input('Νέα προθεσμία καμπάνιας',
+                                             key = 'new_due_date')
+
+                edit_code = st.checkbox('Τροποποίηση κωδικού;',
+                                        key = 'edit_code')
+                new_code = st.text_input('Νέος Κωδικός',
+                                         key = 'new_code').upper()
+                new_code = gr_to_en(new_code)
 
             checkboxes = [edit_section, edit_code, edit_position, edit_quantity,
-                          edit_pending, edit_start_date, edit_trial, edit_crc]
+                          edit_pending, edit_start_date, edit_due_date,
+                          edit_trial, edit_crc]
 
             new_values = [{'section': new_section},
                           {'code': new_code},
@@ -416,6 +429,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                           {'quantity': new_quantity},
                           {'pending': new_pending},
                           {'start_date': new_start_date},
+                          {'due_date': new_due_date},
                           {'trial': new_trial},
                           {'crc': new_crc}]
 
