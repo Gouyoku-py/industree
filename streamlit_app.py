@@ -69,6 +69,27 @@ def read_crc_data():
     crc.set_index('Διαστάσεις', drop = True, append = False, inplace = True)
     return crc
 
+def read_orders_data():
+    orders_list = list(db.collection('orders').stream())
+    orders_dict = list(map(lambda x: x.to_dict(), orders_list))
+    orders = pd.DataFrame(orders_dict,
+                          columns = ['section', 'position', 'code', 'quantity',
+                                     'pending', 'start_date', 'due_date',
+                                     'trial', 'crc'])
+    orders.columns = ['Εγκατάσταση', 'Θέση', 'Κωδικός', 'Πλήθος', 'Υπόλοιπο',
+                      'Έναρξη καμπάνιας', 'Προθεσμία καμπάνιας', 'Δοκιμή', 'CRC']
+    return orders
+
+def read_scrap_data():
+    scrap_list = list(db.collection('scrap').stream())
+    scrap_dict = list(map(lambda x: x.to_dict(), scrap_list))
+    return pd.DataFrame(scrap_dict)
+
+def get_orders_csv(orders):
+    orders_csv = orders.sort_values(by = ['Εγκατάσταση', 'Θέση'],
+                                    ignore_index = True)
+    return orders_csv.to_csv(index = False, encoding = 'utf-8')
+
 def get_frame_double(alloy_data, alloy0, alloy1):
     alloy0_data = alloy_data.loc[alloy0]
     alloy1_data = alloy_data.loc[alloy1]
@@ -92,6 +113,22 @@ def gr_to_en(code):
         code = code.replace(grletter, enletter)
     return code
 
+@st.cache
+def get_var_lists():
+    add_vars = ['add_section', 'add_table', 'add_position', 'add_code',
+                'add_quantity', 'add_pending', 'add_start_date', 'add_due_date'
+                'add_crc', 'add_trial']
+    edit_vars = ['init_section', 'init_position', 'edit_table',
+                 'edit_section', 'edit_position', 'edit_code',
+                 'edit_quantity', 'edit_pending', 'edit_start_date', 'edit_due_date',
+                 'edit_crc', 'new_section', 'new_code', 'new_position',
+                 'new_quantity', 'new_pending', 'new_start_date', 'new_due_date',
+                 'new_crc']
+    delete_vars = ['delete_section', 'delete_table', 'delete_position']
+    scrap_vars = ['scrap_section', 'scrap_entry', 'scrap_text']
+    sections = ['Α', 'Β', 'Η', 'Θ']
+    return add_vars, edit_vars, delete_vars, scrap_vars, sections
+
 streamlit_analytics.start_tracking()
 
 password = st.sidebar.text_input('Κωδικός πρόσβασης',
@@ -105,14 +142,14 @@ elif not password == st.secrets['password']:
     st.stop()
 
 page = st.sidebar.selectbox('Εφαρμογή',
-                            ['Αλλαγή κράματος', 'Πρόγραμμα παραγωγής'],
+                            ['Αλλαγή Κράματος', 'Πρόγραμμα Παραγωγής'],
                             index = 0,
                             key = 'page')
 
-if page == 'Αλλαγή κράματος':
+if page == 'Αλλαγή Κράματος':
     clear_state(['schedule_page'])
 
-    st.title('Αλλαγή Κράματος')
+    st.title(page)
     st.markdown('Μια **απλή** εφαρμογή που δίνει πρόσβαση σε πληροφορίες \
                 απαραίτητες για την αλλαγή κράματος.')
 
@@ -162,8 +199,8 @@ if page == 'Αλλαγή κράματος':
             if st.form_submit_button('Προβολή επιλογής'):
                 st.dataframe(get_frame_single(alloy_data, alloy))
 
-elif page == 'Πρόγραμμα παραγωγής':
-    st.title('Πρόγραμμα παραγωγής')
+elif page == 'Πρόγραμμα Παραγωγής':
+    st.title(page)
     st.markdown('Μια **ελαφρώς σύνθετη** εφαρμογή που επιτρέπει την προβολή \
                 και την τροποποίηση του προγράμματος παραγωγής.')
 
@@ -176,58 +213,31 @@ elif page == 'Πρόγραμμα παραγωγής':
                                          schedule_functions,
                                          key = 'schedule_page')
 
-    add_variables = ['add_section', 'add_table', 'add_position', 'add_code',
-                     'add_quantity', 'add_pending', 'add_start_date', 'add_due_date'
-                     'add_crc', 'add_trial']
+    add_vars, edit_vars, delete_vars, scrap_vars, sections = get_var_lists()
 
-    edit_variables = ['init_section', 'init_position', 'edit_table',
-                      'edit_section', 'edit_position', 'edit_code',
-                      'edit_quantity', 'edit_pending', 'edit_start_date', 'edit_due_date',
-                      'edit_crc', 'new_section', 'new_code', 'new_position',
-                      'new_quantity', 'new_pending', 'new_start_date', 'new_crc']
-
-    delete_variables = ['delete_section', 'delete_table', 'delete_position']
-
-    scrap_variables = ['scrap_section', 'scrap_entry', 'scrap_text']
-
-    sections = ['Α', 'Β', 'Η', 'Θ']
-
-    orders_list = list(db.collection('orders').stream())
-    orders_dict = list(map(lambda x: x.to_dict(), orders_list))
-    orders = pd.DataFrame(orders_dict,
-                          columns = ['section', 'position', 'code', 'quantity',
-                                     'pending', 'start_date', 'due_date', 'trial',
-                                     'crc'])
-    orders.columns = ['Εγκατάσταση', 'Θέση', 'Κωδικός', 'Πλήθος', 'Υπόλοιπο',
-                      'Έναρξη καμπάνιας', 'Προθεσμία καμπάνιας', 'Δοκιμή', 'CRC']
-
+    orders = read_orders_data()
+    scrap = read_scrap_data()
     crc = read_crc_data()
+
     crc_unique = set([item for sublist in crc['Κουτιά'].to_list() for item in sublist])
-    crc_unique_sorted = ['290', '370', '450-1', '450-2', '620-1', '620-2', '727']
+    crc_unique_sorted = list(crc_unique)
+    crc_unique_sorted.sort()
 
-    scrap_list = list(db.collection('scrap').stream())
-    scrap_dict = list(map(lambda x: x.to_dict(), scrap_list))
-    scrap = pd.DataFrame(scrap_dict)
-
-    orders_csv = orders.sort_values(by = ['Εγκατάσταση', 'Θέση'],
-                                    ignore_index = True)
-    orders_csv = orders_csv.to_csv(index = False, encoding = 'utf-8')
-
-    st.sidebar.download_button('Λήψη προγράμματος (csv)',
-                               data = orders_csv,
-                               file_name = 'prod_sched.csv',
-                               key = 'download_schedule')
-    if st.session_state['download_schedule']:
+    today = pd.to_datetime('today').strftime('%d-%m-%Y')
+    if st.sidebar.download_button('Λήψη προγράμματος (csv)',
+                                  data = get_orders_csv(orders),
+                                  file_name = 'Production_Schedule_{}.csv'.format(today),
+                                  key = 'download_schedule'):
         help_download = 'Κατεβάστε το αρχείο στον υπολογιστή σας και εισάγετέ το σε ένα κενό φύλλο του Excel, επιλέγοντας κωδικοποίηση UTF-8.'
         st.sidebar.markdown(help_download)
 
     if schedule_page == 'Προσθήκη παραγγελίας':
-        clear_state(edit_variables + delete_variables + scrap_variables)
+        clear_state(edit_vars + delete_vars + scrap_vars)
 
         st.header(schedule_page)
 
-        add_cols_aux = st.columns([0.32, 0.68])
-        with add_cols_aux[0]:
+        add_cols0 = st.columns([0.32, 0.68])
+        with add_cols0[0]:
             add_section = st.selectbox('Εγκατάσταση',
                                        sections,
                                        key = 'add_section')
@@ -238,9 +248,9 @@ elif page == 'Πρόγραμμα παραγωγής':
             st.dataframe(add_table)
 
         with st.form(key = 'add_form'):
-            add_cols = st.columns([0.3, 0.3, 0.3, 0.1])
+            add_cols1 = st.columns([0.3, 0.3, 0.3, 0.1])
 
-            with add_cols[0]:
+            with add_cols1[0]:
                 help_add_code = 'Κωδικός του κράματος που ζητείται να χυτευτεί'
                 add_code = st.text_input('Κωδικός',
                                          key = 'add_code',
@@ -264,7 +274,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                                        key = 'add_crc',
                                        help = help_add_crc)
 
-            with add_cols[1]:
+            with add_cols1[1]:
                 help_add_quantity = 'Ποσότητα που ζητείται να χυτευτεί σε πλήθος πλακών/κολονών'
                 add_quantity = st.number_input('Ποσότητα',
                                                min_value = 1,
@@ -277,7 +287,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                                                key = 'add_start_date',
                                                help = help_add_start_date)
 
-            with add_cols[2]:
+            with add_cols1[2]:
                 help_add_pending = 'Πλήθος πλακών/κολονών που εκκρεμεί να χυτευτούν'
                 add_pending = st.number_input('Υπόλοιπο',
                                               min_value = 0,
@@ -299,13 +309,13 @@ elif page == 'Πρόγραμμα παραγωγής':
             if st.form_submit_button('Προσθήκη'):
 
                 max_add_position = orders.query("Εγκατάσταση == @add_section")['Θέση'].max()
+
                 if add_position > max_add_position + 1:
                     st.markdown(':red_circle: Οι θέσεις στη σειρά χύτευσης πρέπει να είναι διαδοχικές!')
                 elif add_pending > add_quantity:
                     st.markdown(':red_circle: Το υπόλοιπο χυτεύσεων δεν πρέπει να είναι μεγαλύτερο της συνολικής ποσότητας!')
                 else:
                     batch = db.batch()
-
                     for doc in db.collection('orders').\
                         where('section', '==', add_section).stream():
                         old_position = doc.get('position')
@@ -313,32 +323,31 @@ elif page == 'Πρόγραμμα παραγωγής':
                             new_position = old_position + 1
                             batch.update(doc.reference,
                                          {'position': new_position})
-
                     batch.commit()
 
                     doc_ref = db.collection('orders').document()
                     set_dict = {'section': add_section,
-                                 'position': add_position,
-                                 'code': add_code,
-                                 'quantity': add_quantity,
-                                 'pending': add_pending,
-                                 'trial': add_trial,
-                                 'start_date': add_start_date.strftime('%Y/%m/%d'),
-                                 'due_date': add_due_date.strftime('%Y/%m/%d'),
-                                 'crc': add_crc}
+                                'position': add_position,
+                                'code': add_code,
+                                'quantity': add_quantity,
+                                'pending': add_pending,
+                                'trial': add_trial,
+                                'start_date': add_start_date.strftime('%Y/%m/%d'),
+                                'due_date': add_due_date.strftime('%Y/%m/%d'),
+                                'crc': add_crc}
                     doc_ref.set(set_dict)
 
                     st.markdown(':white_check_mark: Η παραγγελία προστέθηκε επιτυχώς!')
                     st.markdown(':grey_exclamation: Η μεταβολή θα εμφανιστεί στον πίνακα όταν η σελίδα ανανεωθεί.')
 
     elif schedule_page == 'Τροποποίηση παραγγελίας':
-        clear_state(add_variables + delete_variables + scrap_variables)
+        clear_state(add_vars + delete_vars + scrap_vars)
 
         st.header(schedule_page)
 
-        edit_cols_aux = st.columns([0.32, 0.68])
+        edit_cols0 = st.columns([0.32, 0.68])
 
-        with edit_cols_aux[0]:
+        with edit_cols0[0]:
             init_section = st.selectbox('Εγκατάσταση',
                                         sections,
                                         key = 'init_section')
@@ -349,9 +358,9 @@ elif page == 'Πρόγραμμα παραγωγής':
             st.dataframe(edit_table)
 
         with st.form(key = 'edit_form'):
-            edit_cols_aux2 = st.columns([0.32, 0.68])
+            edit_cols1 = st.columns([0.32, 0.68])
 
-            with edit_cols_aux2[0]:
+            with edit_cols1[0]:
                 help_init_position = 'Θέση της χύτευσης στο πρόγραμμα'
                 init_position = st.number_input('Θέση',
                                                 min_value = 1,
@@ -361,12 +370,12 @@ elif page == 'Πρόγραμμα παραγωγής':
                                                 help = help_init_position)
 
             st.markdown('')
-            edit_cols = st.columns([0.40, 0.1, 0.40, 0.1])
+            edit_cols2 = st.columns([0.40, 0.1, 0.40, 0.1])
 
-            with edit_cols[0]:
+            with edit_cols2[0]:
                 edit_section = st.checkbox('Τροποποίηση εγκατάστασης;',
-                                            key = 'edit_section',
-                                            value = False)
+                                           key = 'edit_section',
+                                           value = False)
                 new_section = st.selectbox('Εγκατάσταση',
                                            sections,
                                            key = 'new_section')
@@ -395,7 +404,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                                         value = False,
                                         key = 'new_trial')
 
-            with edit_cols[2]:
+            with edit_cols2[2]:
                 edit_position = st.checkbox('Τροποποίηση θέσης;',
                                             key = 'edit_position')
                 new_position = st.number_input('Νεα θέση',
@@ -442,19 +451,14 @@ elif page == 'Πρόγραμμα παραγωγής':
 
                 if init_position > max_init_position:
                     st.markdown(':red_circle: Δεν υπάρχει χύτευση με αυτό τον αριθμό θέσης!')
-
                 elif (edit_section and not edit_position):
                     st.markdown(':red_circle: Για τροποποίηση εγκατάστασης πρέπει να επιλεγεί και η τροποποίηση θέσης, καθώς και να οριστεί σωστά η θέση στη νέα εγκατάσταση.')
-
                 elif (edit_section and new_position > max_new_position + 1):
                     st.markdown(':red_circle: Οι θέσεις στη σειρά χύτευσης πρέπει να είναι διαδοχικές!')
-
                 elif (not edit_section and edit_position and init_position == new_position):
                     st.markdown(':red_circle: Η νέα θέση δεν πρέπει να είναι ίδια με την αρχική!')
-
                 elif (not edit_section and edit_position and new_position > max_init_position + 1):
                     st.markdown(':red_circle: Οι θέσεις στη σειρά χύτευσης πρέπει να είναι διαδοχικές!')
-
                 else:
                     if edit_section:
                         batch = db.batch()
@@ -505,9 +509,8 @@ elif page == 'Πρόγραμμα παραγωγής':
                                     batch.update(doc.reference, {'position': move_position})
                             batch.commit()
 
-                            ## batch = db.batch()
                         else:
-                            batch = db.batch() ##
+                            batch = db.batch()
                             for doc in db.collection('orders').\
                                 where('section', '==', init_section).stream():
                                 doc_position = doc.get('position')
@@ -541,12 +544,12 @@ elif page == 'Πρόγραμμα παραγωγής':
                                 στον πίνακα όταν η σελίδα ανανεωθεί.')
 
     elif schedule_page == 'Διαγραφή παραγγελίας':
-        clear_state(add_variables + edit_variables + scrap_variables)
+        clear_state(add_vars + edit_vars + scrap_vars)
 
         st.header(schedule_page)
 
-        delete_cols_aux = st.columns([0.32, 0.68])
-        with delete_cols_aux[0]:
+        delete_cols0 = st.columns([0.32, 0.68])
+        with delete_cols0[0]:
             delete_section = st.selectbox('Εγκατάσταση',
                                           sections,
                                           key = 'delete_section')
@@ -558,9 +561,9 @@ elif page == 'Πρόγραμμα παραγωγής':
             delete_empty.dataframe(delete_table)
 
         with st.form(key = 'delete_form'):
-            delete_cols = st.columns([0.32, 0.68])
+            delete_cols1 = st.columns([0.32, 0.68])
 
-            with delete_cols[0]:
+            with delete_cols1[0]:
                 help_delete_position = 'Θέση της χύτευσης στο πρόγραμμα'
                 delete_position = st.number_input('Θέση',
                                                   min_value = 1,
@@ -591,7 +594,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                                 στον πίνακα όταν η σελίδα ανανεωθεί.')
 
     elif schedule_page == 'Στοιχεία προϊόντων':
-        clear_state(add_variables + edit_variables + delete_variables + scrap_variables)
+        clear_state(add_vars + edit_vars + delete_vars + scrap_vars)
 
         st.header(schedule_page)
 
@@ -599,9 +602,9 @@ elif page == 'Πρόγραμμα παραγωγής':
             st.dataframe(products_data)
 
         with st.form(key = 'form_product'):
-            prod_cols_aux = st.columns([0.32, 0.68])
+            prod_cols0 = st.columns([0.32, 0.68])
 
-            with prod_cols_aux[0]:
+            with prod_cols0[0]:
                 prod_code = st.selectbox('Κωδικός προϊόντος',
                                          products_data['Κωδικός'],
                                          key = 'prod_code')
@@ -610,26 +613,26 @@ elif page == 'Πρόγραμμα παραγωγής':
                 st.dataframe(products_data.query("Κωδικός == @prod_code"))
 
     elif schedule_page == 'Καταχώρηση scrap':
-        clear_state(add_variables + edit_variables + delete_variables)
+        clear_state(add_vars + edit_vars + delete_vars)
 
         st.header(schedule_page)
 
-        scrap_cols_aux = st.columns([0.32, 0.32, 0.36])
+        scrap_cols0 = st.columns([0.32, 0.32, 0.36])
 
-        with scrap_cols_aux[0]:
+        with scrap_cols0[0]:
             scrap_section = st.selectbox('Εγκατάσταση',
                                           sections,
                                           key = 'scrap_section')
 
-        with scrap_cols_aux[1]:
+        with scrap_cols0[1]:
             scrap_entry = st.selectbox('Εγγραφή',
                                        range(1,6),
                                        key = 'scrap_entry')
 
         with st.form(key = 'form_scrap'):
-            scrap_cols = st.columns([0.32, 0.68])
+            scrap_cols1 = st.columns([0.32, 0.68])
 
-            with scrap_cols[0]:
+            with scrap_cols1[0]:
                 scrap_text = st.text_input('Νέα καταχώρηση',
                                            key = 'scrap_text')
                 st.write('Τρέχουσα καταχώρηση:',
@@ -647,7 +650,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                                 στον πίνακα όταν η σελίδα ανανεωθεί.')
 
     elif schedule_page == "Παραγγελίες":
-        clear_state(add_variables + edit_variables + delete_variables + scrap_variables)
+        clear_state(add_vars + edit_vars + delete_vars + scrap_vars)
 
         # st.header(schedule_page)
         display = st.radio('Προβολή', ['Καρτελάκια', 'Πίνακες'], key = 'display')
