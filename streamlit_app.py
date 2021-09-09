@@ -51,7 +51,6 @@ def read_products_data():
                            sep = ';',
                            header = None,
                            names = col_names,
-                           # index_col = 'Κωδικός',
                            usecols = [i for i in range(9)] + [10],
                            encoding = 'utf-8',
                            storage_options = {'token': firestore_key})
@@ -87,8 +86,8 @@ def get_frame_single(alloy_data, alloy):
 
 def gr_to_en(code):
     greek = {'Α': 'A', 'Β': 'B', 'Ε': 'E', 'Η': 'H', 'Ι': 'I',
-         'Κ': 'K', 'Μ': 'M', 'Ν': 'N', 'Ο': 'O', 'Ρ': 'P',
-         'Τ': 'T', 'Υ': 'Y', 'Χ': 'X'}
+             'Κ': 'K', 'Μ': 'M', 'Ν': 'N', 'Ο': 'O', 'Ρ': 'P',
+             'Τ': 'T', 'Υ': 'Y', 'Χ': 'X'}
     for grletter, enletter in greek.items():
         code = code.replace(grletter, enletter)
     return code
@@ -123,24 +122,27 @@ if page == 'Αλλαγή κράματος':
 
     if not st.checkbox('Προβολή δεδομένων για ένα μόνο κράμα'):
         with st.form(key = 'form_double'):
-            cols = st.columns([0.45,0.45,0.1])
+            alloy_cols0 = st.columns([0.45,0.45,0.1])
 
             help_alloy0 = 'Κωδικός του κράματος που χυτεύεται έως τώρα'
-            with cols[0]:
+            with alloy_cols0[0]:
                 alloy0 = st.selectbox('Τρέχον κράμα',
                                       alloy_data.index,
                                       key = 'alloy0',
                                       help = help_alloy0)
 
-                btn_refresh = st.form_submit_button('Προβολή επιλογών')
-
             help_alloy1 = 'Κωδικός του κράματος που πρόκειται να χυτευτεί'
-            with cols[1]:
+            with alloy_cols0[1]:
                 alloy1 = st.selectbox('Επόμενο κράμα',
                                       alloy_data.index,
                                       key = 'alloy1',
                                       help = help_alloy1)
 
+            alloy_cols1 = st.columns([0.45,0.45,0.1])
+
+            with alloy_cols1[0]:
+                btn_refresh = st.form_submit_button('Προβολή επιλογών')
+            with alloy_cols1[1]:
                 btn_reverse = st.form_submit_button('Αντίστροφη προβολή')
 
             if btn_refresh:
