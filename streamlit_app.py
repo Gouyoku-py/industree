@@ -9,9 +9,7 @@ import streamlit as st
 import pandas as pd
 pd.set_option('display.precision', 3)
 
-import io
 import json
-import dropbox
 import streamlit_analytics
 
 from string import Template
@@ -22,9 +20,8 @@ st.set_page_config(page_title = 'industree',
                    layout = 'wide',
                    initial_sidebar_state = 'auto')
 
-firestore_key_dict = json.loads(st.secrets['firestore_key'])
-db = firestore.Client.from_service_account_info(firestore_key_dict)
-
+firestore_key = json.loads(st.secrets['firestore_key'])
+db = firestore.Client.from_service_account_info(firestore_key)
 
 def clear_state(variables):
     """
@@ -39,32 +36,37 @@ def clear_state(variables):
             pass
 
 @st.cache
-def read_alloy_data(resource):
-    return pd.read_csv(io.BytesIO(resource.content),
+def read_alloy_data():
+    return pd.read_csv('gs://industree-py.appspot.com/specs.csv',
                        sep = ';',
                        header = 0,
-                       index_col = 'ID')
+                       index_col = 'ID',
+                       storage_options = {'token': firestore_key})
+
 @st.cache
-def read_products_data(resource):
+def read_products_data():
     col_names = ['Κωδικός', 'Είδος', 'Διαστάσεις', 'Κράμα', 'Επεξεργασία',
                  'Πλήθος', 'Μήκος', 'Ανοχές', 'Βάρος', 'Πελάτης']
-    products = pd.read_csv(io.BytesIO(resource.content),
+    products = pd.read_csv('gs://industree-py.appspot.com/products.csv',
                            sep = ';',
                            header = None,
                            names = col_names,
                            # index_col = 'Κωδικός',
                            usecols = [i for i in range(9)] + [10],
-                           encoding = 'utf-8')
+                           encoding = 'utf-8',
+                           storage_options = {'token': firestore_key})
     products['Διαστάσεις'] = products['Διαστάσεις'].apply(lambda x: x.replace('X', 'x'))
     return products
 
 @st.cache
 def read_crc_data():
-    crc_list = list(db.collection('crc').stream())
-    crc_dict = list(map(lambda x: x.to_dict(), crc_list))
-    crc = pd.DataFrame(crc_dict, columns = ['dim', 'boxes'])
-    crc['boxes'] = crc['boxes'].apply(lambda x: x.split(','))
-    crc.columns = ['Διαστάσεις', 'Κουτιά']
+    crc = pd.read_csv('gs://industree-py.appspot.com/crc.csv',
+                      sep = ',',
+                      header = 0,
+                      encoding = 'utf-8',
+                      storage_options = {'token': firestore_key})
+    crc['Διαστάσεις'] = crc['Διαστάσεις'].apply(str)
+    crc['Κουτιά'] = crc['Κουτιά'].apply(lambda x: x.split(';'))
     crc.set_index('Διαστάσεις', drop = True, append = False, inplace = True)
     return crc
 
@@ -115,11 +117,7 @@ if page == 'Αλλαγή κράματος':
     st.markdown('Μια **απλή** εφαρμογή που δίνει πρόσβαση σε πληροφορίες \
                 απαραίτητες για την αλλαγή κράματος.')
 
-    dbx = dropbox.Dropbox(st.secrets['dropbox_token'])
-    res = dbx.files_download("/specs.csv")[1]
-    dbx.close()
-
-    alloy_data = read_alloy_data(res)
+    alloy_data = read_alloy_data()
 
     props = {'font-size': '11pt'}
 
@@ -167,11 +165,7 @@ elif page == 'Πρόγραμμα παραγωγής':
     st.markdown('Μια **ελαφρώς σύνθετη** εφαρμογή που επιτρέπει την προβολή \
                 και την τροποποίηση του προγράμματος παραγωγής.')
 
-    dbx = dropbox.Dropbox(st.secrets['dropbox_token'])
-    res = dbx.files_download("/products.csv")[1]
-    dbx.close()
-
-    products_data = read_products_data(res)
+    products_data = read_products_data()
 
     schedule_functions = ['Παραγγελίες', 'Προσθήκη παραγγελίας',
                           'Τροποποίηση παραγγελίας', 'Διαγραφή παραγγελίας',
@@ -206,6 +200,7 @@ elif page == 'Πρόγραμμα παραγωγής':
 
     crc = read_crc_data()
     crc_unique = set([item for sublist in crc['Κουτιά'].to_list() for item in sublist])
+    crc_unique_sorted = ['290', '370', '450-1', '450-2', '620-1', '620-2', '727']
 
     scrap_list = list(db.collection('scrap').stream())
     scrap_dict = list(map(lambda x: x.to_dict(), scrap_list))
@@ -283,8 +278,7 @@ elif page == 'Πρόγραμμα παραγωγής':
 
                 help_add_crc = 'CRC που απαιτείται να χρησιμοποιηθεί για τη χύτευση'
                 add_crc = st.selectbox('CRC',
-                                       ['N/A', '290', '370', '450-1', '450-2',
-                                        '500', '620-1', '620-2'],
+                                       ['N/A'] + crc_unique_sorted,
                                        key = 'add_crc',
                                        help = help_add_crc)
 
@@ -384,8 +378,7 @@ elif page == 'Πρόγραμμα παραγωγής':
                 edit_crc = st.checkbox('Τροποποίηση CRC;',
                                        key = 'edit_crc')
                 new_crc = st.selectbox('CRC',
-                                       ['N/A', '290', '370', '450-1', '450-2',
-                                        '500', '620-1', '620-2'],
+                                       ['N/A'] + crc_unique_sorted,
                                        key = 'new_crc')
 
             with edit_cols[2]:

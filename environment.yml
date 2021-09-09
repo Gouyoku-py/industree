@@ -1,7 +1,11 @@
 name: industree
+channels: 
+  - conda-forge
 dependencies:
   - dropbox
   - pandas
+  - fsspec
+  - gcsfs
   - pip:
     - streamlit-analytics
   
