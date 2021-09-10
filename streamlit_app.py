@@ -24,11 +24,6 @@ firestore_key = json.loads(st.secrets['firestore_key'])
 db = firestore.Client.from_service_account_info(firestore_key)
 
 def clear_state(variables):
-    """
-    Delete variables in session state. Useful when switching tabs.
-    - variables (list):
-        A list of the names (str) of the variables to be deleted.
-    """
     for variable in variables:
         try:
             del st.session_state[variable]
@@ -72,10 +67,9 @@ def read_crc_data():
 def read_orders_data():
     orders_list = list(db.collection('orders').stream())
     orders_dict = list(map(lambda x: x.to_dict(), orders_list))
-    orders = pd.DataFrame(orders_dict,
-                          columns = ['section', 'position', 'code', 'quantity',
-                                     'complete', 'start_date', 'due_date',
-                                     'trial', 'crc', 'pending'])
+    orders_cols_en = ['section', 'position', 'code', 'quantity', 'complete',
+                      'start_date', 'due_date', 'trial', 'crc', 'pending']
+    orders = pd.DataFrame(orders_dict, columns = orders_cols_en)
     orders.columns = ['Εγκατάσταση', 'Θέση', 'Κωδικός', 'Πλήθος', 'Ολοκληρωμένες',
                       'Έναρξη καμπάνιας', 'Προθεσμία καμπάνιας', 'Δοκιμή', 'CRC',
                       'Υπόλοιπο']
@@ -249,19 +243,13 @@ elif page == 'Πρόγραμμα Παραγωγής':
             st.dataframe(add_table)
 
         with st.form(key = 'add_form'):
-            add_cols1 = st.columns([0.3, 0.3, 0.3, 0.1])
+            add_cols1 = st.columns([0.45, 0.45, 0.1])
 
             with add_cols1[0]:
-                help_add_code = 'Κωδικός του κράματος που ζητείται να χυτευτεί'
-                add_code = st.text_input('Κωδικός',
-                                         key = 'add_code',
-                                         help = help_add_code).upper()
-                add_code = gr_to_en(add_code)
-
                 default = orders.query("Εγκατάσταση == @add_section")['Θέση'].max() + 1
                 default = default if (isinstance(default, int)) else 1
 
-                help_add_position = 'Θέση της νέας χύτευσης στο πρόγραμμα'
+                help_add_position = 'Θέση της νέας παραγγελίας στο πρόγραμμα'
                 add_position = st.number_input('Θέση',
                                                min_value = 1,
                                                max_value = 99,
@@ -269,13 +257,6 @@ elif page == 'Πρόγραμμα Παραγωγής':
                                                key = 'add_position',
                                                help = help_add_position)
 
-                help_add_crc = 'CRC που απαιτείται να χρησιμοποιηθεί για τη χύτευση'
-                add_crc = st.selectbox('CRC',
-                                       ['N/A'] + crc_unique_sorted,
-                                       key = 'add_crc',
-                                       help = help_add_crc)
-
-            with add_cols1[1]:
                 help_add_quantity = 'Πλήθος χυτεύσεων που ζητείται να πραγματοποιηθούν'
                 add_quantity = st.number_input('Πλήθος',
                                                min_value = 1,
@@ -288,8 +269,20 @@ elif page == 'Πρόγραμμα Παραγωγής':
                                                key = 'add_start_date',
                                                help = help_add_start_date)
 
-            with add_cols1[2]:
-                help_add_complete = 'Πλήθος χυτεύσεων που έχουν ολοκληρωθεί'
+                help_add_crc = 'CRC που ζητείται να χρησιμοποιηθεί για τη χύτευση'
+                add_crc = st.selectbox('CRC',
+                                       ['N/A'] + crc_unique_sorted,
+                                       key = 'add_crc',
+                                       help = help_add_crc)
+
+            with add_cols1[1]:
+                help_add_code = 'Κωδικός του κράματος που ζητείται να χυτευτεί'
+                add_code = st.text_input('Κωδικός',
+                                         key = 'add_code',
+                                         help = help_add_code).upper()
+                add_code = gr_to_en(add_code)
+
+                help_add_complete = 'Πλήθος χυτεύσεων που έχουν ήδη ολοκληρωθεί'
                 add_complete = st.number_input('Ολοκληρωμένες',
                                                min_value = 0,
                                                max_value = 99,
@@ -301,11 +294,9 @@ elif page == 'Πρόγραμμα Παραγωγής':
                                              key = 'add_due_date',
                                              help = help_add_due_date)
 
-            help_trial = 'Επιλέξτε αν η χύτευση είναι δοκιμαστική'
-            add_trial = st.checkbox('Δοκιμή',
+            add_trial = st.checkbox('Επιλέξτε αν πρόκειται για δοκιμή',
                                     value = False,
-                                    key = 'add_trial',
-                                    help = help_trial)
+                                    key = 'add_trial')
 
             if st.form_submit_button('Προσθήκη'):
 
@@ -362,7 +353,7 @@ elif page == 'Πρόγραμμα Παραγωγής':
             edit_cols1 = st.columns([0.32, 0.68])
 
             with edit_cols1[0]:
-                help_init_position = 'Θέση της χύτευσης στο πρόγραμμα'
+                help_init_position = 'Τρέχουσα θέση της παραγγελίας στο πρόγραμμα'
                 init_position = st.number_input('Θέση',
                                                 min_value = 1,
                                                 max_value = 99,
@@ -371,64 +362,80 @@ elif page == 'Πρόγραμμα Παραγωγής':
                                                 help = help_init_position)
 
             st.markdown('')
-            edit_cols2 = st.columns([0.40, 0.1, 0.40, 0.1])
+            edit_cols2 = st.columns([0.45, 0.45, 0.1])
 
             with edit_cols2[0]:
                 edit_section = st.checkbox('Τροποποίηση εγκατάστασης;',
                                            key = 'edit_section',
                                            value = False)
+                help_new_section = 'Νέα εγκατάσταση χύτευσης της παραγγελίας'
                 new_section = st.selectbox('Εγκατάσταση',
                                            sections,
-                                           key = 'new_section')
+                                           key = 'new_section',
+                                           help = help_new_section)
 
                 edit_quantity = st.checkbox('Τροποποίηση πλήθους',
                                             key = 'edit_quantity')
+                help_new_quantity = 'Νέο πλήθος χυτεύσεων που ζητείται να πραγματοποιηθούν'
                 new_quantity = st.number_input('Νέο πλήθος',
                                                min_value = 1,
                                                max_value = 99,
-                                               key = 'new_quantity')
+                                               key = 'new_quantity',
+                                               help = help_new_quantity)
 
                 edit_start_date = st.checkbox('Τροποποίηση έναρξης',
                                               key = 'edit_start_date')
+                help_new_start_date = 'Νέα ημ΄έρα από την οποία ζητείται να εκτελεστεί η παραγγελία'
                 new_start_date = st.date_input('Νέα έναρξη καμπάνιας',
-                                               key = 'new_start_date')
+                                               key = 'new_start_date',
+                                               help = help_new_start_date)
 
                 edit_crc = st.checkbox('Τροποποίηση CRC;',
                                        key = 'edit_crc')
+                help_new_crc = 'Νέο CRC που ζητείται να χρησιμοποιηθεί για τη χύτευση'
                 new_crc = st.selectbox('CRC',
                                        ['N/A'] + crc_unique_sorted,
-                                       key = 'new_crc')
+                                       key = 'new_crc',
+                                       help = help_new_crc)
 
                 st.markdown('')
                 edit_trial = True
-                new_trial = st.checkbox('Τροποποιημένη κατάσταση δοκιμής',
+                new_trial = st.checkbox('Επιλέξτε εκ νέου αν πρόκεται για δοκιμή',
                                         value = False,
                                         key = 'new_trial')
 
-            with edit_cols2[2]:
+            with edit_cols2[1]:
                 edit_position = st.checkbox('Τροποποίηση θέσης;',
                                             key = 'edit_position')
+                help_new_position = 'Νέα θέση της παραγγελίας στο πρόγραμμα'
                 new_position = st.number_input('Νεα θέση',
                                                min_value = 1,
                                                max_value = 99,
-                                               key = 'new_position')
+                                               key = 'new_position',
+                                               help = help_new_position)
 
                 edit_complete = st.checkbox('Τροποποίηση ολοκληρωμένων',
-                                           key = 'edit_complete')
+                                            key = 'edit_complete')
+                help_new_complete = 'Νέο πλήθος χυτεύσεων που ζητείται να πραγματοποιηθούν'
                 new_complete = st.number_input('Νέο πλήθος ολοκληρωμένων',
                                                min_value = 0,
                                                max_value = 99,
-                                               key = 'new_complete')
+                                               key = 'new_complete',
+                                               help = help_new_complete)
 
                 edit_due_date = st.checkbox('Τροποποίηση προθεσμίας',
                                             key = 'edit_due_date')
+                help_new_due_date = 'Νέα ημέρα έως την οποία ζητείται να εκτελεστε΄ί η παραγγελία'
                 new_due_date = st.date_input('Νέα προθεσμία καμπάνιας',
-                                             key = 'new_due_date')
+                                             key = 'new_due_date',
+                                             help = help_new_due_date)
 
                 edit_code = st.checkbox('Τροποποίηση κωδικού;',
                                         key = 'edit_code')
+                help_new_code = 'Νέος κωδικός κράματος που ζητείται να χυτευτεί'
                 new_code = st.text_input('Νέος Κωδικός',
-                                         key = 'new_code').upper()
+                                         key = 'new_code',
+                                         help = help_new_code).upper()
                 new_code = gr_to_en(new_code)
 
             checkboxes = [edit_section, edit_code, edit_position, edit_quantity,
@@ -720,7 +727,7 @@ elif page == 'Πρόγραμμα Παραγωγής':
 
                         except:
                             mappings[section][former[i-1] + '01'] = code
-                            mappings[section][former[i-1] + '02'] = 'Άγνωστο Προϊόν'
+                            mappings[section][former[i-1] + '02'] = 'Άγνωστο'
                             mappings[section][former[i-1] + '10'] = section_data.loc[i-1, 'Ολοκληρωμένες']
                             mappings[section][former[i-1] + '11'] = '/ ' + str(section_data.loc[i-1, 'Πλήθος'])
                             mappings[section][former[i-1] + '12'] = style[str(int(section_data.loc[i-1, 'Δοκιμή']))]
