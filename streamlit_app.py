@@ -74,10 +74,11 @@ def read_orders_data():
     orders_dict = list(map(lambda x: x.to_dict(), orders_list))
     orders = pd.DataFrame(orders_dict,
                           columns = ['section', 'position', 'code', 'quantity',
-                                     'pending', 'start_date', 'due_date',
-                                     'trial', 'crc'])
-    orders.columns = ['Εγκατάσταση', 'Θέση', 'Κωδικός', 'Πλήθος', 'Υπόλοιπο',
-                      'Έναρξη καμπάνιας', 'Προθεσμία καμπάνιας', 'Δοκιμή', 'CRC']
+                                     'complete', 'start_date', 'due_date',
+                                     'trial', 'crc', 'pending'])
+    orders.columns = ['Εγκατάσταση', 'Θέση', 'Κωδικός', 'Πλήθος', 'Ολοκληρωμένες',
+                      'Έναρξη καμπάνιας', 'Προθεσμία καμπάνιας', 'Δοκιμή', 'CRC',
+                      'Υπόλοιπο']
     return orders
 
 def read_scrap_data():
@@ -116,13 +117,13 @@ def gr_to_en(code):
 @st.cache
 def get_var_lists():
     add_vars = ['add_section', 'add_table', 'add_position', 'add_code',
-                'add_quantity', 'add_pending', 'add_start_date', 'add_due_date'
+                'add_quantity', 'add_complete', 'add_start_date', 'add_due_date'
                 'add_crc', 'add_trial']
     edit_vars = ['init_section', 'init_position', 'edit_table',
                  'edit_section', 'edit_position', 'edit_code',
-                 'edit_quantity', 'edit_pending', 'edit_start_date', 'edit_due_date',
+                 'edit_quantity', 'edit_complete', 'edit_start_date', 'edit_due_date',
                  'edit_crc', 'new_section', 'new_code', 'new_position',
-                 'new_quantity', 'new_pending', 'new_start_date', 'new_due_date',
+                 'new_quantity', 'new_complete', 'new_start_date', 'new_due_date',
                  'new_crc']
     delete_vars = ['delete_section', 'delete_table', 'delete_position']
     scrap_vars = ['scrap_section', 'scrap_entry', 'scrap_text']
@@ -275,8 +276,8 @@ elif page == 'Πρόγραμμα Παραγωγής':
                                        help = help_add_crc)
 
             with add_cols1[1]:
-                help_add_quantity = 'Ποσότητα που ζητείται να χυτευτεί σε πλήθος πλακών/κολονών'
-                add_quantity = st.number_input('Ποσότητα',
+                help_add_quantity = 'Πλήθος χυτεύσεων που ζητείται να πραγματοποιηθούν'
+                add_quantity = st.number_input('Πλήθος',
                                                min_value = 1,
                                                max_value = 99,
                                                key = 'add_quantity',
@@ -288,12 +289,12 @@ elif page == 'Πρόγραμμα Παραγωγής':
                                                help = help_add_start_date)
 
             with add_cols1[2]:
-                help_add_pending = 'Πλήθος πλακών/κολονών που εκκρεμεί να χυτευτούν'
-                add_pending = st.number_input('Υπόλοιπο',
-                                              min_value = 0,
-                                              max_value = 99,
-                                              key = 'add_pending',
-                                              help = help_add_pending)
+                help_add_complete = 'Πλήθος χυτεύσεων που έχουν ολοκληρωθεί'
+                add_complete = st.number_input('Ολοκληρωμένες',
+                                               min_value = 0,
+                                               max_value = 99,
+                                               key = 'add_complete',
+                                               help = help_add_complete)
 
                 help_add_due_date = 'Ημέρα έως την οποία ζητείται να εκτελεστεί η παραγγελία'
                 add_due_date = st.date_input('Προθεσμία καμπάνιας',
@@ -312,8 +313,8 @@ elif page == 'Πρόγραμμα Παραγωγής':
 
                 if add_position > max_add_position + 1:
                     st.markdown(':red_circle: Οι θέσεις στη σειρά χύτευσης πρέπει να είναι διαδοχικές!')
-                elif add_pending > add_quantity:
-                    st.markdown(':red_circle: Το υπόλοιπο χυτεύσεων δεν πρέπει να είναι μεγαλύτερο της συνολικής ποσότητας!')
+                elif add_complete > add_quantity:
+                    st.markdown(':red_circle: Οι ολοκληρωμένες χυτεύσεις δεν πρέπει να είναι περισσότερες των συνολικών!')
                 else:
                     batch = db.batch()
                     for doc in db.collection('orders').\
@@ -330,7 +331,7 @@ elif page == 'Πρόγραμμα Παραγωγής':
                                 'position': add_position,
                                 'code': add_code,
                                 'quantity': add_quantity,
-                                'pending': add_pending,
+                                'complete': add_complete,
                                 'trial': add_trial,
                                 'start_date': add_start_date.strftime('%Y/%m/%d'),
                                 'due_date': add_due_date.strftime('%Y/%m/%d'),
@@ -380,9 +381,9 @@ elif page == 'Πρόγραμμα Παραγωγής':
                                            sections,
                                            key = 'new_section')
 
-                edit_quantity = st.checkbox('Τροποποίηση ποσότητας;',
+                edit_quantity = st.checkbox('Τροποποίηση πλήθους',
                                             key = 'edit_quantity')
-                new_quantity = st.number_input('Νέα ποσότητα',
+                new_quantity = st.number_input('Νέο πλήθος',
                                                min_value = 1,
                                                max_value = 99,
                                                key = 'new_quantity')
@@ -412,12 +413,12 @@ elif page == 'Πρόγραμμα Παραγωγής':
                                                max_value = 99,
                                                key = 'new_position')
 
-                edit_pending = st.checkbox('Τροποποίηση υπολοίπου;',
-                                           key = 'edit_pending')
-                new_pending = st.number_input('Νέο υπόλοιπο',
-                                              min_value = 0,
-                                              max_value = 99,
-                                              key = 'new_pending')
+                edit_complete = st.checkbox('Τροποποίηση ολοκληρωμένων',
+                                           key = 'edit_complete')
+                new_complete = st.number_input('Νέο πλήθος ολοκληρωμένων',
+                                               min_value = 0,
+                                               max_value = 99,
+                                               key = 'new_complete')
 
                 edit_due_date = st.checkbox('Τροποποίηση προθεσμίας',
                                             key = 'edit_due_date')
@@ -431,14 +432,14 @@ elif page == 'Πρόγραμμα Παραγωγής':
                 new_code = gr_to_en(new_code)
 
             checkboxes = [edit_section, edit_code, edit_position, edit_quantity,
-                          edit_pending, edit_start_date, edit_due_date,
+                          edit_complete, edit_start_date, edit_due_date,
                           edit_trial, edit_crc]
 
             new_values = [{'section': new_section},
                           {'code': new_code},
                           {'position': new_position},
                           {'quantity': new_quantity},
-                          {'pending': new_pending},
+                          {'complete': new_complete},
                           {'start_date': new_start_date},
                           {'due_date': new_due_date},
                           {'trial': new_trial},
@@ -693,7 +694,7 @@ elif page == 'Πρόγραμμα Παραγωγής':
                             mappings[section][former[i-1] + '07'] = int(products_data.loc[prod_id, 'Μήκος'])
                             mappings[section][former[i-1] + '08'] = products_data.loc[prod_id, 'Ανοχές']
                             mappings[section][former[i-1] + '09'] = products_data.loc[prod_id, 'Βάρος']
-                            mappings[section][former[i-1] + '10'] = section_data.loc[i-1, 'Πλήθος'] - section_data.loc[i-1, 'Υπόλοιπο']
+                            mappings[section][former[i-1] + '10'] = section_data.loc[i-1, 'Ολοκληρωμένες']
                             mappings[section][former[i-1] + '11'] = '/ ' + str(section_data.loc[i-1, 'Πλήθος'])
                             mappings[section][former[i-1] + '12'] = style[str(int(section_data.loc[i-1, 'Δοκιμή']))]
 
@@ -720,7 +721,7 @@ elif page == 'Πρόγραμμα Παραγωγής':
                         except:
                             mappings[section][former[i-1] + '01'] = code
                             mappings[section][former[i-1] + '02'] = 'Άγνωστο Προϊόν'
-                            mappings[section][former[i-1] + '10'] = section_data.loc[i-1, 'Υπόλοιπο']
+                            mappings[section][former[i-1] + '10'] = section_data.loc[i-1, 'Ολοκληρωμένες']
                             mappings[section][former[i-1] + '11'] = '/ ' + str(section_data.loc[i-1, 'Πλήθος'])
                             mappings[section][former[i-1] + '12'] = style[str(int(section_data.loc[i-1, 'Δοκιμή']))]
                     else:
