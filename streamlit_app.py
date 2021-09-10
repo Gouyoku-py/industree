@@ -137,7 +137,7 @@ elif not password == st.secrets['password']:
     st.stop()
 
 page = st.sidebar.selectbox('Εφαρμογή',
-                            ['Αλλαγή Κράματος', 'Πρόγραμμα Παραγωγής'],
+                            ['Πρόγραμμα Παραγωγής', 'Αλλαγή Κράματος'],
                             index = 0,
                             key = 'page')
 
@@ -306,6 +306,8 @@ elif page == 'Πρόγραμμα Παραγωγής':
                     st.markdown(':red_circle: Οι θέσεις στη σειρά χύτευσης πρέπει να είναι διαδοχικές!')
                 elif add_complete > add_quantity:
                     st.markdown(':red_circle: Οι ολοκληρωμένες χυτεύσεις δεν πρέπει να είναι περισσότερες των συνολικών!')
+                elif add_start_date > add_due_date:
+                    st.markdown(':red_circle: Η προθεσμία της καμπάνιας δεν πρέπει να προηγείται της ημέρας έναρξής της!')
                 else:
                     batch = db.batch()
                     for doc in db.collection('orders').\
@@ -447,8 +449,8 @@ elif page == 'Πρόγραμμα Παραγωγής':
                           {'position': new_position},
                           {'quantity': new_quantity},
                           {'complete': new_complete},
-                          {'start_date': new_start_date},
-                          {'due_date': new_due_date},
+                          {'start_date': new_start_date.strftime('%Y/%m/%d')},
+                          {'due_date': new_due_date.strftime('%Y/%m/%d')},
                           {'trial': new_trial},
                           {'crc': new_crc}]
 
@@ -456,6 +458,8 @@ elif page == 'Πρόγραμμα Παραγωγής':
 
                 max_init_position = orders.query("Εγκατάσταση == @init_section")['Θέση'].max()
                 max_new_position = orders.query("Εγκατάσταση == @new_section")['Θέση'].max()
+                cur_start_date = str(orders.query("Εγκατάσταση == @new_section & Θέση == @init_position")['Έναρξη καμπάνιας'].values[0])
+                cur_due_date = str(orders.query("Εγκατάσταση == @new_section & Θέση == @init_position")['Προθεσμία καμπάνιας'].values[0])
 
                 if init_position > max_init_position:
                     st.markdown(':red_circle: Δεν υπάρχει χύτευση με αυτό τον αριθμό θέσης!')
@@ -467,6 +471,12 @@ elif page == 'Πρόγραμμα Παραγωγής':
                     st.markdown(':red_circle: Η νέα θέση δεν πρέπει να είναι ίδια με την αρχική!')
                 elif (not edit_section and edit_position and new_position > max_init_position + 1):
                     st.markdown(':red_circle: Οι θέσεις στη σειρά χύτευσης πρέπει να είναι διαδοχικές!')
+                elif (edit_due_date and not edit_start_date and cur_start_date > new_due_date.strftime('%Y/%m/%d')):
+                    st.markdown(':red_circle: Η προθεσμία της καμπάνιας δεν πρέπει να προηγείται της ημέρας έναρξής της!')
+                elif (edit_start_date and not edit_due_date and new_start_date.strftime('%Y/%m/%d') > cur_due_date):
+                    st.markdown(':red_circle: Η προθεσμία της καμπάνιας δεν πρέπει να προηγείται της ημέρας έναρξής της!')
+                elif (edit_start_date and edit_due_date and new_start_date.strftime('%Y/%m/%d') > new_due_date.strftime('%Y/%m/%d')):
+                    st.markdown(':red_circle: Η προθεσμία της καμπάνιας δεν πρέπει να προηγείται της ημέρας έναρξής της!')
                 else:
                     if edit_section:
                         batch = db.batch()
@@ -668,7 +678,9 @@ elif page == 'Πρόγραμμα Παραγωγής':
                 st.markdown('### Εγκατάσταση **{}**'.format(section))
                 show_table = orders.query("Εγκατάσταση == '{}'".format(section))\
                     .sort_values(by = 'Θέση', ignore_index = True)
-                st.dataframe(show_table)
+                st.dataframe(show_table.style.applymap(lambda x: 'color: red' if x < pd.to_datetime('today').strftime('%Y/%m/%d')
+                                          else 'color: white',
+                                          subset = 'Προθεσμία καμπάνιας'))
         else:
             max_cards = 10
             with open('templates/template-cards.html', 'r') as f:
